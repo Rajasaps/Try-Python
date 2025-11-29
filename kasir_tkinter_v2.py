@@ -476,18 +476,38 @@ class KedaiHaunaApp:
             card_widget = self.create_menu_card(menu_container, item, row, col)
             self.menu_cards[item['id']] = {'widget': card_widget, 'item': item}
         
+        # No results message (initially hidden)
+        self.no_results_frame = tk.Frame(menu_container, bg=self.colors['bg_dark'])
+        self.no_results_frame.grid(row=100, column=0, columnspan=3, pady=50)
+        self.no_results_frame.grid_remove()
+        
+        tk.Label(self.no_results_frame, text="🔍", font=("Arial", 48),
+                bg=self.colors['bg_dark'], fg=self.colors['text_gray']).pack(pady=10)
+        tk.Label(self.no_results_frame, text="Menu tidak ditemukan", font=("Segoe UI", 16, "bold"),
+                bg=self.colors['bg_dark'], fg="white").pack(pady=5)
+        tk.Label(self.no_results_frame, text="Coba kata kunci lain untuk mencari menu", font=("Segoe UI", 11),
+                bg=self.colors['bg_dark'], fg=self.colors['text_gray']).pack(pady=5)
+        
         # Bind search function
         def search_menu(*args):
             search_text = self.search_var.get().lower()
             if search_text == "cari menu...":
                 search_text = ""
             
+            visible_count = 0
             for item_id, card_data in self.menu_cards.items():
                 item_name = card_data['item']['name'].lower()
                 if search_text in item_name or search_text == "":
                     card_data['widget'].grid()
+                    visible_count += 1
                 else:
                     card_data['widget'].grid_remove()
+            
+            # Show/hide no results message
+            if visible_count == 0 and search_text != "":
+                self.no_results_frame.grid()
+            else:
+                self.no_results_frame.grid_remove()
         
         self.search_var.trace('w', search_menu)
 
@@ -997,57 +1017,170 @@ class KedaiHaunaApp:
                  command=receipt_window.destroy).pack(side=tk.RIGHT, padx=10)
     
     def save_receipt_pdf(self, transaction, cash_amount, window):
-        """Simpan nota sebagai text file (simplified)"""
+        """Simpan nota sebagai PDF file"""
         try:
-            filename = f"nota_{transaction['id']}.txt"
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.lib.units import mm
+            from reportlab.pdfgen import canvas
+            from reportlab.lib import colors
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
             
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write("=" * 40 + "\n")
-                f.write("         KEDAI HAUNA\n")
-                f.write("    Purbalingga, Indonesia\n")
-                f.write("=" * 40 + "\n\n")
-                
-                f.write(f"No. Transaksi: {transaction['id']}\n")
-                f.write(f"Tanggal: {transaction['date']}\n")
-                
-                customer_name = self.customer_name_var.get() if hasattr(self, 'customer_name_var') and self.customer_name_var.get() else "Umum"
-                f.write(f"Customer: {customer_name}\n")
-                f.write("-" * 40 + "\n\n")
-                
-                f.write("ITEM\n")
-                for item in transaction['items']:
-                    f.write(f"{item['name']}\n")
-                    f.write(f"  {item['quantity']}x Rp {item['price']:,} = Rp {item['quantity'] * item['price']:,}\n")
-                
-                f.write("\n" + "-" * 40 + "\n")
-                
-                subtotal = transaction['total'] / 1.1
-                tax = transaction['total'] - subtotal
-                
-                f.write(f"Subtotal: Rp {subtotal:,.0f}\n")
-                f.write(f"Pajak (10%): Rp {tax:,.0f}\n")
-                f.write("=" * 40 + "\n")
-                f.write(f"TOTAL: Rp {transaction['total']:,.0f}\n")
-                f.write("=" * 40 + "\n\n")
-                
-                payment_names = {
-                    'cash': 'Tunai', 'debit': 'Kartu Debit', 'credit': 'Kartu Kredit',
-                    'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer Bank'
-                }
-                
-                f.write(f"Metode: {payment_names.get(transaction['payment_method'], 'Unknown')}\n")
-                
-                if cash_amount > 0:
-                    f.write(f"Bayar: Rp {cash_amount:,.0f}\n")
-                    f.write(f"Kembali: Rp {cash_amount - transaction['total']:,.0f}\n")
-                
-                f.write("\n" + "=" * 40 + "\n")
-                f.write("       Terima Kasih\n")
-                f.write("   Selamat Datang Kembali\n")
-                f.write("=" * 40 + "\n")
+            filename = f"nota_{transaction['id']}.pdf"
             
-            messagebox.showinfo("Berhasil", f"Nota berhasil disimpan sebagai {filename}")
-            self.show_notification(f"Nota disimpan: {filename}", duration=3000)
+            # Create PDF
+            c = canvas.Canvas(filename, pagesize=A4)
+            width, height = A4
+            
+            # Set up fonts
+            try:
+                # Try to use system fonts for better Unicode support
+                c.setFont("Helvetica-Bold", 16)
+            except:
+                c.setFont("Helvetica-Bold", 16)
+            
+            # Header
+            y = height - 50
+            c.setFont("Helvetica-Bold", 20)
+            c.drawCentredString(width/2, y, "KEDAI HAUNA")
+            
+            y -= 20
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(width/2, y, "Purbalingga, Indonesia")
+            
+            # Line separator
+            y -= 15
+            c.line(50, y, width-50, y)
+            
+            # Transaction info
+            y -= 30
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(50, y, "NOTA PEMBAYARAN")
+            
+            y -= 25
+            c.setFont("Helvetica", 10)
+            c.drawString(50, y, f"No. Transaksi:")
+            c.drawString(200, y, transaction['id'])
+            
+            y -= 20
+            c.drawString(50, y, f"Tanggal:")
+            c.drawString(200, y, transaction['date'])
+            
+            y -= 20
+            customer_name = transaction.get('customer_name', 'Umum')
+            c.drawString(50, y, f"Customer:")
+            c.drawString(200, y, customer_name.title())
+            
+            payment_names = {
+                'cash': 'Tunai', 'debit': 'Kartu Debit', 'credit': 'Kartu Kredit',
+                'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer Bank'
+            }
+            
+            y -= 20
+            c.drawString(50, y, f"Metode Bayar:")
+            c.drawString(200, y, payment_names.get(transaction['payment_method'], 'Unknown'))
+            
+            # Line separator
+            y -= 15
+            c.line(50, y, width-50, y)
+            
+            # Items header
+            y -= 25
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(50, y, "Item")
+            c.drawString(300, y, "Qty")
+            c.drawString(360, y, "Harga")
+            c.drawString(470, y, "Subtotal")
+            
+            y -= 5
+            c.line(50, y, width-50, y)
+            
+            # Items
+            y -= 20
+            c.setFont("Helvetica", 9)
+            for item in transaction['items']:
+                if y < 100:  # Check if we need a new page
+                    c.showPage()
+                    y = height - 50
+                    c.setFont("Helvetica", 9)
+                
+                # Item name (wrap if too long)
+                item_name = item['name']
+                if len(item_name) > 30:
+                    item_name = item_name[:27] + "..."
+                c.drawString(50, y, item_name)
+                
+                # Quantity
+                c.drawString(300, y, str(item['quantity']))
+                
+                # Price
+                c.drawString(360, y, f"Rp {item['price']:,}")
+                
+                # Subtotal
+                subtotal_item = item['quantity'] * item['price']
+                c.drawString(470, y, f"Rp {subtotal_item:,}")
+                
+                y -= 20
+            
+            # Line separator
+            y -= 5
+            c.line(50, y, width-50, y)
+            
+            # Summary
+            y -= 25
+            subtotal = transaction['total'] / 1.1
+            tax = transaction['total'] - subtotal
+            
+            c.setFont("Helvetica", 10)
+            c.drawString(360, y, "Subtotal:")
+            c.drawString(470, y, f"Rp {subtotal:,.0f}")
+            
+            y -= 20
+            c.drawString(360, y, "Pajak (10%):")
+            c.drawString(470, y, f"Rp {tax:,.0f}")
+            
+            # Line separator
+            y -= 10
+            c.line(350, y, width-50, y)
+            
+            # Total
+            y -= 25
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(360, y, "TOTAL:")
+            c.drawString(470, y, f"Rp {transaction['total']:,.0f}")
+            
+            # Payment details (if cash)
+            if cash_amount > 0:
+                y -= 30
+                c.setFont("Helvetica", 10)
+                c.drawString(360, y, "Bayar:")
+                c.drawString(470, y, f"Rp {cash_amount:,.0f}")
+                
+                y -= 20
+                change = cash_amount - transaction['total']
+                c.drawString(360, y, "Kembali:")
+                c.drawString(470, y, f"Rp {change:,.0f}")
+            
+            # Footer
+            y -= 50
+            c.setFont("Helvetica-Bold", 11)
+            c.drawCentredString(width/2, y, "Terima Kasih")
+            
+            y -= 20
+            c.setFont("Helvetica", 9)
+            c.drawCentredString(width/2, y, "Selamat Datang Kembali")
+            
+            # Save PDF
+            c.save()
+            
+            # Show notification that PDF is saved
+            self.show_notification(f"✓ PDF tersimpan: {filename}", duration=3000, type="success")
+            
+            # Ask to open PDF (PDF already saved regardless of answer)
+            if messagebox.askyesno("PDF Tersimpan", f"Nota PDF berhasil disimpan!\n\nFile: {filename}\n\nApakah Anda ingin membuka PDF sekarang?"):
+                os.startfile(filename)
+            else:
+                messagebox.showinfo("Info", f"PDF sudah tersimpan di:\n{os.path.abspath(filename)}\n\nAnda dapat membukanya kapan saja.")
             
         except Exception as e:
             messagebox.showerror("Error", f"Gagal menyimpan nota: {str(e)}")
@@ -1197,11 +1330,42 @@ class KedaiHaunaApp:
         
         tree.bind("<Double-Button-1>", on_double_click)
         
-        # Add info label
-        info_label = tk.Label(table_frame, text="💡 Tip: Double-click pada baris untuk melihat detail lengkap transaksi", 
-                             font=("Segoe UI", 9, "italic"),
-                             bg=self.colors['bg_card'], fg=self.colors['text_gray'])
-        info_label.pack(pady=(0, 10), padx=20, anchor="w")
+        # Add info box with better visibility
+        info_frame = tk.Frame(table_frame, bg=self.colors['bg_dark'])
+        info_frame.pack(fill=tk.X, pady=(10, 5), padx=20)
+        
+        # Icon
+        tk.Label(info_frame, text="💡", font=("Segoe UI", 14),
+                bg=self.colors['bg_dark'], fg="#FFA500").pack(side=tk.LEFT, padx=(10, 8))
+        
+        # Text - shorter and clearer
+        tk.Label(info_frame, text="Double-click baris untuk lihat detail transaksi", 
+                font=("Segoe UI", 10, "bold"),
+                bg=self.colors['bg_dark'], fg="white").pack(side=tk.LEFT, pady=12)
+        
+        # Export section in separate row below
+        export_container = tk.Frame(table_frame, bg=self.colors['bg_card'])
+        export_container.pack(fill=tk.X, pady=(5, 15), padx=20)
+        
+        # Label on the left
+        tk.Label(export_container, text="📥 Export Laporan:", font=("Segoe UI", 10, "bold"),
+                bg=self.colors['bg_card'], fg="white").pack(side=tk.LEFT, padx=(15, 15), pady=12)
+        
+        # Export buttons frame (vertical stack)
+        export_buttons_frame = tk.Frame(export_container, bg=self.colors['bg_card'])
+        export_buttons_frame.pack(side=tk.LEFT, pady=5)
+        
+        # Excel button on top
+        tk.Button(export_buttons_frame, text="📊 Export ke Excel", font=("Segoe UI", 9, "bold"),
+                 bg="#28a745", fg="white", relief=tk.FLAT,
+                 command=self.export_to_excel, cursor="hand2",
+                 padx=18, pady=8, width=20, anchor="w").pack(pady=2)
+        
+        # PDF button below
+        tk.Button(export_buttons_frame, text="📄 Export ke PDF", font=("Segoe UI", 9, "bold"),
+                 bg=self.colors['accent'], fg="white", relief=tk.FLAT,
+                 command=self.export_to_pdf, cursor="hand2",
+                 padx=18, pady=8, width=20, anchor="w").pack(pady=2)
     
     def show_transaction_detail(self, transaction):
         """Tampilkan detail lengkap transaksi"""
@@ -1352,6 +1516,240 @@ class KedaiHaunaApp:
         tk.Button(button_frame, text="Tutup", font=("Segoe UI", 11),
                  bg=self.colors['bg_dark'], fg="white", relief=tk.FLAT,
                  command=detail_window.destroy, cursor="hand2", pady=12).pack(fill=tk.X, pady=5)
+    
+    def export_to_excel(self):
+        """Export laporan transaksi ke Excel"""
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+            
+            # Create workbook
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Laporan Transaksi"
+            
+            # Header styling
+            header_fill = PatternFill(start_color="FF4444", end_color="FF4444", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # Title
+            ws.merge_cells('A1:H1')
+            ws['A1'] = "LAPORAN TRANSAKSI - KEDAI HAUNA"
+            ws['A1'].font = Font(bold=True, size=14)
+            ws['A1'].alignment = Alignment(horizontal='center')
+            
+            # Subtitle
+            ws.merge_cells('A2:H2')
+            ws['A2'] = f"Tanggal Export: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}"
+            ws['A2'].alignment = Alignment(horizontal='center')
+            
+            # Headers
+            headers = ["No", "ID Transaksi", "Tanggal", "Jam", "Customer", "Item", "Metode", "Total"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=4, column=col, value=header)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center')
+                cell.border = border
+            
+            # Data
+            payment_names = {
+                'cash': 'Tunai', 'debit': 'Debit', 'credit': 'Kredit',
+                'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer'
+            }
+            
+            row = 5
+            for idx, trans in enumerate(reversed(self.transactions), 1):
+                date_obj = datetime.strptime(trans["date"], '%Y-%m-%d %H:%M:%S')
+                date_str = date_obj.strftime('%d-%m-%Y')
+                time_str = date_obj.strftime('%H:%M:%S')
+                
+                items_list = [f"{item['name']} ({item['quantity']}x)" for item in trans['items']]
+                items_text = ", ".join(items_list)
+                
+                customer_name = trans.get('customer_name', 'Umum').title()
+                
+                data = [
+                    idx,
+                    trans['id'],
+                    date_str,
+                    time_str,
+                    customer_name,
+                    items_text,
+                    payment_names.get(trans['payment_method'], trans['payment_method']),
+                    trans['total']
+                ]
+                
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.border = border
+                    if col == 8:  # Total column
+                        cell.number_format = 'Rp #,##0'
+                        cell.alignment = Alignment(horizontal='right')
+                    elif col in [1, 3, 4, 7]:  # Center align
+                        cell.alignment = Alignment(horizontal='center')
+                
+                row += 1
+            
+            # Summary
+            row += 1
+            total_income = sum(t["total"] for t in self.transactions)
+            total_trans = len(self.transactions)
+            
+            ws.merge_cells(f'A{row}:G{row}')
+            ws[f'A{row}'] = "TOTAL PEMASUKAN"
+            ws[f'A{row}'].font = Font(bold=True, size=12)
+            ws[f'A{row}'].alignment = Alignment(horizontal='right')
+            ws[f'H{row}'] = total_income
+            ws[f'H{row}'].font = Font(bold=True, size=12)
+            ws[f'H{row}'].number_format = 'Rp #,##0'
+            ws[f'H{row}'].fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            
+            row += 1
+            ws.merge_cells(f'A{row}:G{row}')
+            ws[f'A{row}'] = "TOTAL TRANSAKSI"
+            ws[f'A{row}'].font = Font(bold=True)
+            ws[f'A{row}'].alignment = Alignment(horizontal='right')
+            ws[f'H{row}'] = total_trans
+            ws[f'H{row}'].font = Font(bold=True)
+            ws[f'H{row}'].alignment = Alignment(horizontal='center')
+            
+            # Adjust column widths
+            ws.column_dimensions['A'].width = 5
+            ws.column_dimensions['B'].width = 18
+            ws.column_dimensions['C'].width = 12
+            ws.column_dimensions['D'].width = 10
+            ws.column_dimensions['E'].width = 15
+            ws.column_dimensions['F'].width = 40
+            ws.column_dimensions['G'].width = 12
+            ws.column_dimensions['H'].width = 15
+            
+            # Save file
+            filename = f"laporan_transaksi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            wb.save(filename)
+            
+            self.show_notification(f"✓ Excel tersimpan: {filename}", duration=3000, type="success")
+            
+            if messagebox.askyesno("Excel Tersimpan", f"Laporan Excel berhasil disimpan!\n\nFile: {filename}\n\nApakah Anda ingin membuka file sekarang?"):
+                os.startfile(filename)
+            else:
+                messagebox.showinfo("Info", f"File Excel sudah tersimpan di:\n{os.path.abspath(filename)}")
+                
+        except ImportError:
+            messagebox.showerror("Error", "Library openpyxl belum terinstall!\n\nJalankan: pip install openpyxl")
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal export ke Excel: {str(e)}")
+    
+    def export_to_pdf(self):
+        """Export laporan transaksi ke PDF"""
+        try:
+            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib.units import mm
+            from reportlab.pdfgen import canvas
+            from reportlab.lib import colors
+            from reportlab.platypus import Table, TableStyle
+            
+            filename = f"laporan_transaksi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            
+            # Create PDF in landscape mode for better table view
+            c = canvas.Canvas(filename, pagesize=landscape(A4))
+            width, height = landscape(A4)
+            
+            # Header
+            y = height - 40
+            c.setFont("Helvetica-Bold", 18)
+            c.drawCentredString(width/2, y, "LAPORAN TRANSAKSI - KEDAI HAUNA")
+            
+            y -= 20
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(width/2, y, f"Tanggal Export: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}")
+            
+            # Line
+            y -= 15
+            c.line(40, y, width-40, y)
+            
+            # Summary stats
+            y -= 30
+            total_income = sum(t["total"] for t in self.transactions)
+            total_trans = len(self.transactions)
+            avg_trans = total_income / total_trans if total_trans > 0 else 0
+            
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(40, y, f"Total Pemasukan: Rp {total_income:,.0f}")
+            c.drawString(250, y, f"Total Transaksi: {total_trans}")
+            c.drawString(450, y, f"Rata-rata: Rp {avg_trans:,.0f}")
+            
+            # Table header
+            y -= 30
+            c.setFont("Helvetica-Bold", 9)
+            headers = ["No", "ID Transaksi", "Tanggal", "Jam", "Customer", "Item", "Metode", "Total"]
+            x_positions = [40, 70, 160, 220, 270, 340, 550, 620]
+            
+            for i, header in enumerate(headers):
+                c.drawString(x_positions[i], y, header)
+            
+            y -= 5
+            c.line(40, y, width-40, y)
+            
+            # Data
+            y -= 20
+            c.setFont("Helvetica", 8)
+            
+            payment_names = {
+                'cash': 'Tunai', 'debit': 'Debit', 'credit': 'Kredit',
+                'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer'
+            }
+            
+            for idx, trans in enumerate(reversed(self.transactions), 1):
+                if y < 60:  # New page if needed
+                    c.showPage()
+                    y = height - 40
+                    c.setFont("Helvetica", 8)
+                
+                date_obj = datetime.strptime(trans["date"], '%Y-%m-%d %H:%M:%S')
+                date_str = date_obj.strftime('%d-%m-%Y')
+                time_str = date_obj.strftime('%H:%M')
+                
+                items_list = [f"{item['name']} ({item['quantity']}x)" for item in trans['items']]
+                items_text = ", ".join(items_list)
+                if len(items_text) > 35:
+                    items_text = items_text[:32] + "..."
+                
+                customer_name = trans.get('customer_name', 'Umum').title()
+                
+                c.drawString(x_positions[0], y, str(idx))
+                c.drawString(x_positions[1], y, trans['id'][:12])
+                c.drawString(x_positions[2], y, date_str)
+                c.drawString(x_positions[3], y, time_str)
+                c.drawString(x_positions[4], y, customer_name[:12])
+                c.drawString(x_positions[5], y, items_text)
+                c.drawString(x_positions[6], y, payment_names.get(trans['payment_method'], '')[:10])
+                c.drawString(x_positions[7], y, f"Rp {trans['total']:,.0f}")
+                
+                y -= 18
+            
+            # Footer line
+            y -= 10
+            c.line(40, y, width-40, y)
+            
+            # Save
+            c.save()
+            
+            self.show_notification(f"✓ PDF tersimpan: {filename}", duration=3000, type="success")
+            
+            if messagebox.askyesno("PDF Tersimpan", f"Laporan PDF berhasil disimpan!\n\nFile: {filename}\n\nApakah Anda ingin membuka file sekarang?"):
+                os.startfile(filename)
+            else:
+                messagebox.showinfo("Info", f"File PDF sudah tersimpan di:\n{os.path.abspath(filename)}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal export ke PDF: {str(e)}")
     
     def create_stat_card(self, parent, icon, title, value, col):
         card = tk.Frame(parent, bg=self.colors['bg_card'])
