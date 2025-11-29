@@ -297,16 +297,35 @@ class KedaiHaunaApp:
         cart_sidebar.pack(side=tk.RIGHT, fill=tk.Y)
         cart_sidebar.pack_propagate(False)
         
-        # Profile card
-        profile_frame = tk.Frame(cart_sidebar, bg=self.colors['bg_card'])
-        profile_frame.pack(fill=tk.X, padx=15, pady=15)
+        # Logo card
+        logo_frame = tk.Frame(cart_sidebar, bg=self.colors['bg_card'])
+        logo_frame.pack(fill=tk.X, padx=15, pady=15)
         
-        tk.Label(profile_frame, text="👩", font=("Arial", 40), 
-                bg="#333333", fg="white").pack(pady=15)
-        tk.Label(profile_frame, text="Hauna Balqis", font=("Arial", 13, "bold"),
+        # Logo Kedai Hauna
+        logo_bg = tk.Frame(logo_frame, bg=self.colors['accent'], width=60, height=60)
+        logo_bg.pack(pady=15)
+        logo_bg.pack_propagate(False)
+        
+        tk.Label(logo_bg, text="🍜", font=("Arial", 32), 
+                bg=self.colors['accent'], fg="white").pack(expand=True)
+        
+        tk.Label(logo_frame, text="Kedai Hauna", font=("Segoe UI", 14, "bold"),
                 bg=self.colors['bg_card'], fg="white").pack()
-        tk.Label(profile_frame, text="📍 Purbalingga, Indonesia", font=("Arial", 9),
-                bg=self.colors['bg_card'], fg=self.colors['text_gray']).pack(pady=8)
+        tk.Label(logo_frame, text="📍 Purbalingga, Indonesia", font=("Segoe UI", 9),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray']).pack(pady=5)
+        
+        # Customer name input
+        customer_frame = tk.Frame(logo_frame, bg=self.colors['bg_card'])
+        customer_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        tk.Label(customer_frame, text="Nama Customer:", font=("Segoe UI", 10),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray'], anchor="w").pack(fill=tk.X, pady=(0, 5))
+        
+        self.customer_name_var = tk.StringVar()
+        customer_entry = tk.Entry(customer_frame, textvariable=self.customer_name_var,
+                                  font=("Segoe UI", 11), bg=self.colors['bg_dark'],
+                                  fg="white", relief=tk.FLAT, insertbackground="white")
+        customer_entry.pack(fill=tk.X, ipady=8, padx=2)
         
         # Cart section
         cart_section = tk.Frame(cart_sidebar, bg=self.colors['bg_card'])
@@ -807,11 +826,15 @@ class KedaiHaunaApp:
             self.finalize_payment(method, total, 0, dialog)
     
     def finalize_payment(self, method, total, cash_amount, dialog):
+        # Get customer name
+        customer_name = self.customer_name_var.get() if hasattr(self, 'customer_name_var') and self.customer_name_var.get() else "Umum"
+        
         transaction = {
             "id": datetime.now().strftime('%Y%m%d%H%M%S'),
             "items": self.cart.copy(),
             "total": total,
             "payment_method": method,
+            "customer_name": customer_name,
             "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
@@ -844,8 +867,206 @@ class KedaiHaunaApp:
         notif_message = f"Pesanan berhasil dibayar! ID: {transaction['id']}"
         self.show_notification(notif_message, duration=4000, type="success")
         
+        # Ask if want to print receipt
+        if messagebox.askyesno("Cetak Nota", "Apakah Anda ingin mencetak nota?"):
+            self.print_receipt(transaction, cash_amount if method == "cash" else 0)
+        
         self.cart = []
         self.update_cart_display()
+    
+    def print_receipt(self, transaction, cash_amount=0):
+        """Generate dan tampilkan nota untuk dicetak"""
+        # Create receipt window
+        receipt_window = tk.Toplevel(self.root)
+        receipt_window.title(f"Nota - {transaction['id']}")
+        receipt_window.geometry("400x700")
+        receipt_window.configure(bg="white")
+        
+        # Center window
+        receipt_window.update_idletasks()
+        x = (receipt_window.winfo_screenwidth() // 2) - (receipt_window.winfo_width() // 2)
+        y = (receipt_window.winfo_screenheight() // 2) - (receipt_window.winfo_height() // 2)
+        receipt_window.geometry(f"+{x}+{y}")
+        
+        # Receipt content frame
+        content_frame = tk.Frame(receipt_window, bg="white", padx=30, pady=20)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Header
+        tk.Label(content_frame, text="KEDAI HAUNA", font=("Courier New", 16, "bold"),
+                bg="white", fg="black").pack()
+        tk.Label(content_frame, text="Purbalingga, Indonesia", font=("Courier New", 9),
+                bg="white", fg="black").pack()
+        tk.Label(content_frame, text="=" * 40, font=("Courier New", 10),
+                bg="white", fg="black").pack(pady=5)
+        
+        # Transaction info
+        info_frame = tk.Frame(content_frame, bg="white")
+        info_frame.pack(fill=tk.X, pady=10)
+        
+        tk.Label(info_frame, text=f"No. Transaksi: {transaction['id']}", 
+                font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        tk.Label(info_frame, text=f"Tanggal: {transaction['date']}", 
+                font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        
+        # Customer name
+        customer_name = self.customer_name_var.get() if hasattr(self, 'customer_name_var') and self.customer_name_var.get() else "Umum"
+        tk.Label(info_frame, text=f"Customer: {customer_name}", 
+                font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        
+        tk.Label(content_frame, text="-" * 40, font=("Courier New", 10),
+                bg="white", fg="black").pack(pady=5)
+        
+        # Items
+        items_frame = tk.Frame(content_frame, bg="white")
+        items_frame.pack(fill=tk.X)
+        
+        for item in transaction['items']:
+            item_line = tk.Frame(items_frame, bg="white")
+            item_line.pack(fill=tk.X, pady=2)
+            
+            tk.Label(item_line, text=item['name'], font=("Courier New", 9),
+                    bg="white", fg="black", anchor="w").pack(side=tk.LEFT)
+            
+            price_text = f"{item['quantity']}x {item['price']:,} = {item['quantity'] * item['price']:,}"
+            tk.Label(item_line, text=price_text, font=("Courier New", 9),
+                    bg="white", fg="black", anchor="e").pack(side=tk.RIGHT)
+        
+        tk.Label(content_frame, text="-" * 40, font=("Courier New", 10),
+                bg="white", fg="black").pack(pady=5)
+        
+        # Summary
+        summary_frame = tk.Frame(content_frame, bg="white")
+        summary_frame.pack(fill=tk.X)
+        
+        subtotal = transaction['total'] / 1.1
+        tax = transaction['total'] - subtotal
+        
+        tk.Label(summary_frame, text=f"Subtotal: Rp {subtotal:,.0f}", 
+                font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        tk.Label(summary_frame, text=f"Pajak (10%): Rp {tax:,.0f}", 
+                font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        
+        tk.Label(content_frame, text="=" * 40, font=("Courier New", 10),
+                bg="white", fg="black").pack(pady=5)
+        
+        tk.Label(content_frame, text=f"TOTAL: Rp {transaction['total']:,.0f}", 
+                font=("Courier New", 12, "bold"), bg="white", fg="black").pack()
+        
+        # Payment info
+        payment_names = {
+            'cash': 'Tunai', 'debit': 'Kartu Debit', 'credit': 'Kartu Kredit',
+            'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer Bank'
+        }
+        
+        payment_frame = tk.Frame(content_frame, bg="white")
+        payment_frame.pack(fill=tk.X, pady=10)
+        
+        tk.Label(payment_frame, text=f"Metode: {payment_names.get(transaction['payment_method'], 'Unknown')}", 
+                font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        
+        if cash_amount > 0:
+            tk.Label(payment_frame, text=f"Bayar: Rp {cash_amount:,.0f}", 
+                    font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+            tk.Label(payment_frame, text=f"Kembali: Rp {cash_amount - transaction['total']:,.0f}", 
+                    font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
+        
+        tk.Label(content_frame, text="=" * 40, font=("Courier New", 10),
+                bg="white", fg="black").pack(pady=5)
+        
+        # Footer
+        tk.Label(content_frame, text="Terima Kasih", font=("Courier New", 10, "bold"),
+                bg="white", fg="black").pack(pady=5)
+        tk.Label(content_frame, text="Selamat Datang Kembali", font=("Courier New", 9),
+                bg="white", fg="black").pack()
+        
+        # Buttons
+        button_frame = tk.Frame(receipt_window, bg="white", pady=10)
+        button_frame.pack(fill=tk.X)
+        
+        tk.Button(button_frame, text="💾 Simpan PDF", font=("Segoe UI", 10, "bold"),
+                 bg="#4CAF50", fg="white", relief=tk.FLAT, padx=20, pady=10,
+                 command=lambda: self.save_receipt_pdf(transaction, cash_amount, receipt_window)).pack(side=tk.LEFT, padx=10)
+        
+        tk.Button(button_frame, text="🖨️ Print", font=("Segoe UI", 10, "bold"),
+                 bg="#2196F3", fg="white", relief=tk.FLAT, padx=20, pady=10,
+                 command=lambda: self.print_receipt_direct(transaction, cash_amount)).pack(side=tk.LEFT, padx=10)
+        
+        tk.Button(button_frame, text="Tutup", font=("Segoe UI", 10),
+                 bg="#999", fg="white", relief=tk.FLAT, padx=20, pady=10,
+                 command=receipt_window.destroy).pack(side=tk.RIGHT, padx=10)
+    
+    def save_receipt_pdf(self, transaction, cash_amount, window):
+        """Simpan nota sebagai text file (simplified)"""
+        try:
+            filename = f"nota_{transaction['id']}.txt"
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write("=" * 40 + "\n")
+                f.write("         KEDAI HAUNA\n")
+                f.write("    Purbalingga, Indonesia\n")
+                f.write("=" * 40 + "\n\n")
+                
+                f.write(f"No. Transaksi: {transaction['id']}\n")
+                f.write(f"Tanggal: {transaction['date']}\n")
+                
+                customer_name = self.customer_name_var.get() if hasattr(self, 'customer_name_var') and self.customer_name_var.get() else "Umum"
+                f.write(f"Customer: {customer_name}\n")
+                f.write("-" * 40 + "\n\n")
+                
+                f.write("ITEM\n")
+                for item in transaction['items']:
+                    f.write(f"{item['name']}\n")
+                    f.write(f"  {item['quantity']}x Rp {item['price']:,} = Rp {item['quantity'] * item['price']:,}\n")
+                
+                f.write("\n" + "-" * 40 + "\n")
+                
+                subtotal = transaction['total'] / 1.1
+                tax = transaction['total'] - subtotal
+                
+                f.write(f"Subtotal: Rp {subtotal:,.0f}\n")
+                f.write(f"Pajak (10%): Rp {tax:,.0f}\n")
+                f.write("=" * 40 + "\n")
+                f.write(f"TOTAL: Rp {transaction['total']:,.0f}\n")
+                f.write("=" * 40 + "\n\n")
+                
+                payment_names = {
+                    'cash': 'Tunai', 'debit': 'Kartu Debit', 'credit': 'Kartu Kredit',
+                    'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer Bank'
+                }
+                
+                f.write(f"Metode: {payment_names.get(transaction['payment_method'], 'Unknown')}\n")
+                
+                if cash_amount > 0:
+                    f.write(f"Bayar: Rp {cash_amount:,.0f}\n")
+                    f.write(f"Kembali: Rp {cash_amount - transaction['total']:,.0f}\n")
+                
+                f.write("\n" + "=" * 40 + "\n")
+                f.write("       Terima Kasih\n")
+                f.write("   Selamat Datang Kembali\n")
+                f.write("=" * 40 + "\n")
+            
+            messagebox.showinfo("Berhasil", f"Nota berhasil disimpan sebagai {filename}")
+            self.show_notification(f"Nota disimpan: {filename}", duration=3000)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal menyimpan nota: {str(e)}")
+    
+    def print_receipt_direct(self, transaction, cash_amount):
+        """Print nota langsung ke printer (simplified - open file)"""
+        try:
+            filename = f"nota_{transaction['id']}.txt"
+            
+            # Save first
+            self.save_receipt_pdf(transaction, cash_amount, None)
+            
+            # Open file with default program
+            os.startfile(filename)
+            
+            self.show_notification("Nota dibuka untuk print", duration=2000)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal membuka nota: {str(e)}")
 
     def show_pemasukan_page(self):
         self.btn_kasir.config(bg=self.colors['bg_card'], fg=self.colors['text_gray'])
@@ -865,7 +1086,7 @@ class KedaiHaunaApp:
         total_trans = len(self.transactions)
         avg_trans = total_income / total_trans if total_trans > 0 else 0
         
-        self.create_stat_card(stats_frame, "💵", "Total Pemasukan Hari Ini", 
+        self.create_stat_card(stats_frame, "💵", "Total Pemasukan", 
                              f"Rp {total_income:,.0f}", 0)
         self.create_stat_card(stats_frame, "🛒", "Total Transaksi", str(total_trans), 1)
         self.create_stat_card(stats_frame, "📈", "Rata-rata Transaksi", 
@@ -881,45 +1102,256 @@ class KedaiHaunaApp:
         # Treeview
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Treeview", background=self.colors['bg_dark'], 
-                       foreground="white", fieldbackground=self.colors['bg_dark'],
-                       borderwidth=0)
-        style.configure("Treeview.Heading", background=self.colors['bg_card'],
-                       foreground="white", borderwidth=0)
+        style.configure("Treeview", 
+                       background=self.colors['bg_dark'], 
+                       foreground="white", 
+                       fieldbackground=self.colors['bg_dark'],
+                       borderwidth=0,
+                       rowheight=32,
+                       font=("Segoe UI", 9))
+        style.configure("Treeview.Heading", 
+                       background=self.colors['bg_card'],
+                       foreground="white", 
+                       borderwidth=0,
+                       font=("Segoe UI", 10, "bold"),
+                       relief="flat")
         style.map("Treeview", background=[("selected", self.colors['accent'])])
         
-        tree = ttk.Treeview(table_frame, columns=("ID", "Tanggal", "Item", "Metode", "Total"),
+        tree = ttk.Treeview(table_frame, columns=("No", "Tanggal", "Jam", "Customer", "Item", "Metode", "Total"),
                            show="headings", height=15)
         
-        tree.heading("ID", text="ID Transaksi")
-        tree.heading("Tanggal", text="Tanggal & Waktu")
-        tree.heading("Item", text="Item")
-        tree.heading("Metode", text="Metode Bayar")
+        tree.heading("No", text="No")
+        tree.heading("Tanggal", text="Tanggal")
+        tree.heading("Jam", text="Jam")
+        tree.heading("Customer", text="Customer")
+        tree.heading("Item", text="Item Pesanan")
+        tree.heading("Metode", text="Pembayaran")
         tree.heading("Total", text="Total")
         
-        tree.column("ID", width=120)
-        tree.column("Tanggal", width=150)
-        tree.column("Item", width=250)
-        tree.column("Metode", width=120)
-        tree.column("Total", width=120)
+        tree.column("No", width=40, anchor="center")
+        tree.column("Tanggal", width=95, anchor="center")
+        tree.column("Jam", width=75, anchor="center")
+        tree.column("Customer", width=110, anchor="center")
+        tree.column("Item", width=290, anchor="center")
+        tree.column("Metode", width=100, anchor="center")
+        tree.column("Total", width=110, anchor="center")
         
         payment_names = {
-            'cash': 'Tunai', 'debit': 'Kartu Debit', 'credit': 'Kartu Kredit',
-            'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer Bank'
+            'cash': 'Tunai', 'debit': 'Debit', 'credit': 'Kredit',
+            'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer'
         }
         
-        for trans in reversed(self.transactions):
-            items_text = ", ".join([f"{item['name']} ({item['quantity']}x)" 
-                                   for item in trans['items']])
+        for idx, trans in enumerate(reversed(self.transactions), 1):
+            # Parse date and time
+            date_obj = datetime.strptime(trans["date"], '%Y-%m-%d %H:%M:%S')
+            date_str = date_obj.strftime('%d-%m-%Y')
+            time_str = date_obj.strftime('%H:%M:%S')
+            
+            # Format items - lebih ringkas
+            items_list = []
+            for item in trans['items']:
+                qty = item['quantity']
+                name = item['name']
+                # Singkat nama jika terlalu panjang
+                if len(name) > 15:
+                    name = name[:12] + "..."
+                items_list.append(f"{name} ({qty}x)")
+            items_text = ", ".join(items_list)
+            
+            # Truncate if too long
+            if len(items_text) > 45:
+                items_text = items_text[:42] + "..."
+            
+            customer_name = trans.get('customer_name', 'Umum')
+            # Capitalize customer name
+            if customer_name:
+                customer_name = customer_name.title()
+            
             tree.insert("", "end", values=(
-                trans["id"],
-                trans["date"],
-                items_text[:40] + "..." if len(items_text) > 40 else items_text,
+                idx,
+                date_str,
+                time_str,
+                customer_name,
+                items_text,
                 payment_names.get(trans["payment_method"], trans["payment_method"]),
                 f"Rp {trans['total']:,.0f}"
             ))
         
-        tree.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=10)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=10, padx=(0, 20))
+        
+        # Bind double-click event to show detail
+        def on_double_click(event):
+            selected_item = tree.selection()
+            if selected_item:
+                item_values = tree.item(selected_item[0])['values']
+                if item_values:
+                    # Get transaction index (No - 1 because we enumerate from 1)
+                    trans_idx = len(self.transactions) - int(item_values[0])
+                    if 0 <= trans_idx < len(self.transactions):
+                        self.show_transaction_detail(self.transactions[trans_idx])
+        
+        tree.bind("<Double-Button-1>", on_double_click)
+        
+        # Add info label
+        info_label = tk.Label(table_frame, text="💡 Tip: Double-click pada baris untuk melihat detail lengkap transaksi", 
+                             font=("Segoe UI", 9, "italic"),
+                             bg=self.colors['bg_card'], fg=self.colors['text_gray'])
+        info_label.pack(pady=(0, 10), padx=20, anchor="w")
+    
+    def show_transaction_detail(self, transaction):
+        """Tampilkan detail lengkap transaksi"""
+        # Create detail window
+        detail_window = tk.Toplevel(self.root)
+        detail_window.title(f"Detail Transaksi - {transaction['id']}")
+        detail_window.geometry("600x700")
+        detail_window.configure(bg=self.colors['bg_card'])
+        detail_window.transient(self.root)
+        
+        # Center window
+        detail_window.update_idletasks()
+        x = (detail_window.winfo_screenwidth() // 2) - (detail_window.winfo_width() // 2)
+        y = (detail_window.winfo_screenheight() // 2) - (detail_window.winfo_height() // 2)
+        detail_window.geometry(f"+{x}+{y}")
+        
+        # Header
+        header = tk.Frame(detail_window, bg=self.colors['bg_dark'])
+        header.pack(fill=tk.X, padx=0, pady=0)
+        
+        header_content = tk.Frame(header, bg=self.colors['bg_dark'])
+        header_content.pack(fill=tk.X, padx=20, pady=20)
+        
+        tk.Label(header_content, text="📋 Detail Transaksi", font=("Segoe UI", 16, "bold"),
+                bg=self.colors['bg_dark'], fg="white").pack(side=tk.LEFT)
+        
+        tk.Button(header_content, text="×", font=("Arial", 20), bg=self.colors['bg_dark'],
+                 fg="white", relief=tk.FLAT, command=detail_window.destroy,
+                 cursor="hand2").pack(side=tk.RIGHT)
+        
+        # Content frame with scroll
+        canvas = tk.Canvas(detail_window, bg=self.colors['bg_card'], highlightthickness=0)
+        scrollbar = tk.Scrollbar(detail_window, orient="vertical", command=canvas.yview)
+        content_frame = tk.Frame(canvas, bg=self.colors['bg_card'])
+        
+        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=content_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Transaction info section
+        info_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
+        info_section.pack(fill=tk.X, padx=20, pady=15)
+        
+        tk.Label(info_section, text="Informasi Transaksi", font=("Segoe UI", 12, "bold"),
+                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(10, 15), padx=15)
+        
+        # Transaction details
+        details = [
+            ("ID Transaksi", transaction['id']),
+            ("Tanggal & Waktu", transaction['date']),
+            ("Nama Customer", transaction.get('customer_name', 'Umum').title()),
+            ("Metode Pembayaran", {
+                'cash': 'Tunai', 'debit': 'Kartu Debit', 'credit': 'Kartu Kredit',
+                'ewallet': 'E-Wallet', 'qris': 'QRIS', 'transfer': 'Transfer Bank'
+            }.get(transaction['payment_method'], transaction['payment_method']))
+        ]
+        
+        for label, value in details:
+            detail_row = tk.Frame(info_section, bg=self.colors['bg_dark'])
+            detail_row.pack(fill=tk.X, padx=15, pady=5)
+            
+            tk.Label(detail_row, text=label + ":", font=("Segoe UI", 10),
+                    bg=self.colors['bg_dark'], fg=self.colors['text_gray'],
+                    anchor="w", width=20).pack(side=tk.LEFT)
+            
+            tk.Label(detail_row, text=value, font=("Segoe UI", 10, "bold"),
+                    bg=self.colors['bg_dark'], fg="white", anchor="w").pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Items section
+        items_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
+        items_section.pack(fill=tk.X, padx=20, pady=15)
+        
+        tk.Label(items_section, text="Item Pesanan", font=("Segoe UI", 12, "bold"),
+                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(10, 15), padx=15)
+        
+        # Items table header
+        header_row = tk.Frame(items_section, bg=self.colors['bg_card'])
+        header_row.pack(fill=tk.X, padx=15, pady=(0, 5))
+        
+        tk.Label(header_row, text="Item", font=("Segoe UI", 9, "bold"),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray'],
+                anchor="w", width=30).pack(side=tk.LEFT, padx=5)
+        tk.Label(header_row, text="Qty", font=("Segoe UI", 9, "bold"),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray'],
+                anchor="center", width=8).pack(side=tk.LEFT, padx=5)
+        tk.Label(header_row, text="Harga", font=("Segoe UI", 9, "bold"),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray'],
+                anchor="e", width=12).pack(side=tk.LEFT, padx=5)
+        tk.Label(header_row, text="Subtotal", font=("Segoe UI", 9, "bold"),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray'],
+                anchor="e", width=12).pack(side=tk.LEFT, padx=5)
+        
+        # Items list
+        for item in transaction['items']:
+            item_row = tk.Frame(items_section, bg="#1a1a1a")
+            item_row.pack(fill=tk.X, padx=15, pady=3)
+            
+            tk.Label(item_row, text=item['name'], font=("Segoe UI", 10),
+                    bg="#1a1a1a", fg="white", anchor="w", width=30).pack(side=tk.LEFT, padx=5, pady=8)
+            tk.Label(item_row, text=str(item['quantity']), font=("Segoe UI", 10),
+                    bg="#1a1a1a", fg="white", anchor="center", width=8).pack(side=tk.LEFT, padx=5)
+            tk.Label(item_row, text=f"Rp {item['price']:,}", font=("Segoe UI", 10),
+                    bg="#1a1a1a", fg="white", anchor="e", width=12).pack(side=tk.LEFT, padx=5)
+            tk.Label(item_row, text=f"Rp {item['price'] * item['quantity']:,}", font=("Segoe UI", 10, "bold"),
+                    bg="#1a1a1a", fg="white", anchor="e", width=12).pack(side=tk.LEFT, padx=5)
+        
+        # Summary section
+        summary_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
+        summary_section.pack(fill=tk.X, padx=20, pady=15)
+        
+        tk.Label(summary_section, text="Ringkasan Pembayaran", font=("Segoe UI", 12, "bold"),
+                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(10, 15), padx=15)
+        
+        subtotal = transaction['total'] / 1.1
+        tax = transaction['total'] - subtotal
+        
+        summary_items = [
+            ("Subtotal", f"Rp {subtotal:,.0f}", "white"),
+            ("Pajak (10%)", f"Rp {tax:,.0f}", "white"),
+            ("TOTAL", f"Rp {transaction['total']:,.0f}", self.colors['accent'])
+        ]
+        
+        for label, value, color in summary_items:
+            summary_row = tk.Frame(summary_section, bg=self.colors['bg_dark'])
+            summary_row.pack(fill=tk.X, padx=15, pady=5)
+            
+            font_style = ("Segoe UI", 14, "bold") if label == "TOTAL" else ("Segoe UI", 10)
+            
+            tk.Label(summary_row, text=label + ":", font=font_style,
+                    bg=self.colors['bg_dark'], fg=self.colors['text_gray'] if label != "TOTAL" else "white",
+                    anchor="w").pack(side=tk.LEFT)
+            
+            tk.Label(summary_row, text=value, font=font_style,
+                    bg=self.colors['bg_dark'], fg=color, anchor="e").pack(side=tk.RIGHT)
+        
+        # Action buttons
+        button_frame = tk.Frame(content_frame, bg=self.colors['bg_card'])
+        button_frame.pack(fill=tk.X, padx=20, pady=20)
+        
+        tk.Button(button_frame, text="🖨️ Cetak Ulang Nota", font=("Segoe UI", 11, "bold"),
+                 bg=self.colors['accent'], fg="white", relief=tk.FLAT,
+                 command=lambda: self.print_receipt(transaction, 0),
+                 cursor="hand2", pady=12).pack(fill=tk.X, pady=5)
+        
+        tk.Button(button_frame, text="Tutup", font=("Segoe UI", 11),
+                 bg=self.colors['bg_dark'], fg="white", relief=tk.FLAT,
+                 command=detail_window.destroy, cursor="hand2", pady=12).pack(fill=tk.X, pady=5)
     
     def create_stat_card(self, parent, icon, title, value, col):
         card = tk.Frame(parent, bg=self.colors['bg_card'])
