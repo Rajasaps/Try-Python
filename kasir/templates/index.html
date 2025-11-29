@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kedai Hauna</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">🍜</div>
+                <div class="logo-text">
+                    <div>Kedai</div>
+                    <div>Hauna</div>
+                </div>
+            </div>
+            
+            <nav class="menu">
+                <a href="#" class="menu-item active" onclick="showPage('kasir'); return false;">
+                    <span class="icon">💰</span>
+                    <span>Kasir</span>
+                </a>
+                <a href="#" class="menu-item" onclick="showPage('pemasukan'); return false;">
+                    <span class="icon">📊</span>
+                    <span>Pemasukan</span>
+                </a>
+            </nav>
+            
+            <a href="#" class="logout">
+                <span class="icon">🚪</span>
+                <span>Logout</span>
+            </a>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="search-bar">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="Cari menu..." onkeyup="searchMenu()">
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" onclick="showNotificationHistory()" style="position: relative;">
+                        🔔
+                        <span id="notif-badge" class="notif-badge" style="display: none;">0</span>
+                    </button>
+                    <button class="icon-btn">👤</button>
+                </div>
+            </header>
+            
+            <!-- Halaman Kasir -->
+            <div id="page-kasir" class="page-content">
+                <div class="menu-grid">
+                    {% for item in menu_items %}
+                    <div class="menu-card" data-name="{{ item.name|lower }}">
+                        <div class="menu-image" style="background-image: url('{{ item.image }}');"></div>
+                        <div class="menu-info">
+                            <h3>{{ item.name }}</h3>
+                            <p class="price">Rp {{ "{:,}".format(item.price) }}</p>
+                        </div>
+                        {% if 'has_variant' in item and item.has_variant %}
+                        <button class="add-btn" 
+                                data-id="{{ item.id }}" 
+                                data-name="{{ item.name }}" 
+                                data-price="{{ item.price }}" 
+                                data-image="{{ item.image }}"
+                                data-has-variant="true"
+                                data-variants="{{ item.variants|join(',') }}">+</button>
+                        {% else %}
+                        <button class="add-btn" 
+                                data-id="{{ item.id }}" 
+                                data-name="{{ item.name }}" 
+                                data-price="{{ item.price }}" 
+                                data-image="{{ item.image }}">+</button>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Halaman Pemasukan -->
+            <div id="page-pemasukan" class="page-content" style="display: none;">
+                <div class="income-header">
+                    <h2>Laporan Pemasukan</h2>
+                    <div class="income-stats">
+                        <div class="stat-card">
+                            <div class="stat-icon">💵</div>
+                            <div class="stat-info">
+                                <p>Total Pemasukan Hari Ini</p>
+                                <h3 id="total-income">Rp 0</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🛒</div>
+                            <div class="stat-info">
+                                <p>Total Transaksi</p>
+                                <h3 id="total-transactions">0</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📈</div>
+                            <div class="stat-info">
+                                <p>Rata-rata Transaksi</p>
+                                <h3 id="avg-transaction">Rp 0</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="transactions-table">
+                    <div class="table-header">
+                        <h3>Riwayat Transaksi</h3>
+                        <button class="btn-export" onclick="exportTransactions()">📥 Export</button>
+                    </div>
+                    <table id="transactions-list">
+                        <thead>
+                            <tr>
+                                <th>ID Transaksi</th>
+                                <th>Tanggal & Waktu</th>
+                                <th>Item</th>
+                                <th>Metode Bayar</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-body">
+                            <tr>
+                                <td colspan="5" class="no-data">Belum ada transaksi hari ini</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar">
+            <div class="profile-card">
+                <div class="profile-avatar">👩</div>
+                <h3>Hauna Balqis</h3>
+                <p class="location">📍 Purbalingga, Indonesia</p>
+            </div>
+            
+            <div class="orders-section">
+                <div class="orders-header">
+                    <h3>Keranjang Belanja</h3>
+                    <button class="dropdown-btn" onclick="clearCart()">🗑️</button>
+                </div>
+                
+                <div class="orders-list" id="cart-items">
+                    <p class="empty-cart">Keranjang kosong</p>
+                </div>
+                
+                <div class="cart-summary">
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">Rp 0</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Pajak (10%):</span>
+                        <span id="tax">Rp 0</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span id="total">Rp 0</span>
+                    </div>
+                    <button class="checkout-btn" onclick="checkout()">Bayar Sekarang</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- Notification History Modal -->
+    <div id="notificationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔔 Riwayat Notifikasi</h2>
+                <button class="close-modal" onclick="closeNotificationModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="notification-list" class="notification-list">
+                    <p class="empty-notif">Belum ada notifikasi</p>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="clearNotificationHistory()">Hapus Semua</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Variant Modal -->
+    <div id="variantModal" class="modal">
+        <div class="modal-content variant-modal">
+            <div class="modal-header">
+                <h2 id="variant-item-name">Pilih Varian</h2>
+                <button class="close-modal" onclick="closeVariantModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="variant-options" class="variant-options">
+                    <!-- Variant buttons will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Pilih Metode Pembayaran</h2>
+                <button class="close-modal" onclick="closePaymentModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="payment-summary">
+                    <div class="summary-item">
+                        <span>Subtotal:</span>
+                        <span id="modal-subtotal">Rp 0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Pajak (10%):</span>
+                        <span id="modal-tax">Rp 0</span>
+                    </div>
+                    <div class="summary-item total-item">
+                        <span>Total Bayar:</span>
+                        <span id="modal-total">Rp 0</span>
+                    </div>
+                </div>
+                
+                <!-- Input Uang Tunai -->
+                <div id="cash-input-section" class="cash-input-section" style="display: none;">
+                    <div class="cash-input-group">
+                        <label for="cash-amount">Uang Tunai:</label>
+                        <input type="number" id="cash-amount" placeholder="Masukkan jumlah uang" oninput="calculateChange()">
+                    </div>
+                    <div class="quick-cash-buttons">
+                        <button class="quick-cash-btn" onclick="setQuickCash(10000)">10.000</button>
+                        <button class="quick-cash-btn" onclick="setQuickCash(20000)">20.000</button>
+                        <button class="quick-cash-btn" onclick="setQuickCash(50000)">50.000</button>
+                        <button class="quick-cash-btn" onclick="setQuickCash(100000)">100.000</button>
+                    </div>
+                    <div class="change-display">
+                        <div class="change-item">
+                            <span>Kembalian:</span>
+                            <span id="change-amount" class="change-value">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="payment-methods">
+                    <div class="payment-option" onclick="selectPayment('cash')">
+                        <div class="payment-icon">💵</div>
+                        <div class="payment-info">
+                            <h3>Tunai</h3>
+                            <p>Bayar dengan uang tunai</p>
+                        </div>
+                        <div class="payment-radio">
+                            <input type="radio" name="payment" value="cash" checked>
+                        </div>
+                    </div>
+                    
+                    <div class="payment-option" onclick="selectPayment('debit')">
+                        <div class="payment-icon">💳</div>
+                        <div class="payment-info">
+                            <h3>Kartu Debit</h3>
+                            <p>Bayar dengan kartu debit</p>
+                        </div>
+                        <div class="payment-radio">
+                            <input type="radio" name="payment" value="debit">
+                        </div>
+                    </div>
+                    
+                    <div class="payment-option" onclick="selectPayment('credit')">
+                        <div class="payment-icon">💳</div>
+                        <div class="payment-info">
+                            <h3>Kartu Kredit</h3>
+                            <p>Bayar dengan kartu kredit</p>
+                        </div>
+                        <div class="payment-radio">
+                            <input type="radio" name="payment" value="credit">
+                        </div>
+                    </div>
+                    
+                    <div class="payment-option" onclick="selectPayment('ewallet')">
+                        <div class="payment-icon">📱</div>
+                        <div class="payment-info">
+                            <h3>E-Wallet</h3>
+                            <p>GoPay, OVO, Dana, ShopeePay</p>
+                        </div>
+                        <div class="payment-radio">
+                            <input type="radio" name="payment" value="ewallet">
+                        </div>
+                    </div>
+                    
+                    <div class="payment-option" onclick="selectPayment('qris')">
+                        <div class="payment-icon">📲</div>
+                        <div class="payment-info">
+                            <h3>QRIS</h3>
+                            <p>Scan QR untuk bayar</p>
+                        </div>
+                        <div class="payment-radio">
+                            <input type="radio" name="payment" value="qris">
+                        </div>
+                    </div>
+                    
+                    <div class="payment-option" onclick="selectPayment('transfer')">
+                        <div class="payment-icon">🏦</div>
+                        <div class="payment-info">
+                            <h3>Transfer Bank</h3>
+                            <p>Transfer ke rekening toko</p>
+                        </div>
+                        <div class="payment-radio">
+                            <input type="radio" name="payment" value="transfer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closePaymentModal()">Batal</button>
+                <button class="btn-confirm" onclick="confirmPayment()">Konfirmasi Pembayaran</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let cart = [];
+        let transactions = [];
+        let notificationHistory = [];
+        
+        // Load cart saat halaman dimuat
+        window.onload = function() {
+            loadCart();
+            loadTransactions();
+            setupAddButtons();
+        };
+        
+        // Setup event listeners untuk tombol add
+        function setupAddButtons() {
+            document.querySelectorAll('.add-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = parseInt(this.dataset.id);
+                    const name = this.dataset.name;
+                    const price = parseInt(this.dataset.price);
+                    const image = this.dataset.image;
+                    const hasVariant = this.dataset.hasVariant === 'true';
+                    
+                    if (hasVariant) {
+                        const variants = this.dataset.variants.split(',');
+                        showVariantModal(id, name, price, image, variants);
+                    } else {
+                        addToCart(id, name, price, image);
+                    }
+                });
+            });
+        }
+        
+        // Ganti halaman
+        function showPage(page) {
+            // Update menu aktif
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            // Tampilkan halaman
+            document.getElementById('page-kasir').style.display = page === 'kasir' ? 'block' : 'none';
+            document.getElementById('page-pemasukan').style.display = page === 'pemasukan' ? 'block' : 'none';
+            
+            if (page === 'pemasukan') {
+                updateIncomeStats();
+            }
+        }
+        
+        // Search menu
+        function searchMenu() {
+            const searchValue = document.getElementById('search-input').value.toLowerCase();
+            const menuCards = document.querySelectorAll('.menu-card');
+            
+            menuCards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                if (name.includes(searchValue)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        // Tampilkan modal varian
+        let currentVariantItem = {};
+        function showVariantModal(id, name, price, image, variants) {
+            currentVariantItem = { id, name, price, image };
+            document.getElementById('variant-item-name').textContent = name;
+            
+            const variantOptions = document.getElementById('variant-options');
+            let html = '';
+            
+            variants.forEach(variant => {
+                html += `
+                    <button class="variant-btn" onclick="selectVariantAndAdd('${variant}')">
+                        ${variant}
+                    </button>
+                `;
+            });
+            
+            variantOptions.innerHTML = html;
+            document.getElementById('variantModal').style.display = 'flex';
+        }
+        
+        // Tutup modal varian
+        function closeVariantModal() {
+            document.getElementById('variantModal').style.display = 'none';
+        }
+        
+        // Pilih varian dan tambah ke cart
+        async function selectVariantAndAdd(variant) {
+            closeVariantModal();
+            await addToCartWithVariant(currentVariantItem.id, currentVariantItem.name, currentVariantItem.price, currentVariantItem.image, variant);
+        }
+        
+        // Tambah item ke cart dengan varian
+        async function addToCartWithVariant(id, name, price, image, variant = '') {
+            try {
+                const response = await fetch('/api/cart/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: id, variant: variant })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    cart = data.cart;
+                    updateCartDisplay();
+                    const displayName = variant ? `${name} (${variant})` : name;
+                    showNotification('✓ ' + displayName + ' ditambahkan ke keranjang');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Tambah item ke cart (tanpa varian)
+        async function addToCart(id, name, price, image) {
+            await addToCartWithVariant(id, name, price, image, '');
+        }
+        
+        // Load cart dari server
+        async function loadCart() {
+            try {
+                const response = await fetch('/api/cart');
+                const data = await response.json();
+                cart = data;
+                updateCartDisplay();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Update tampilan cart
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cart-items');
+            
+            if (cart.length === 0) {
+                cartItems.innerHTML = '<p class="empty-cart">Keranjang kosong</p>';
+                document.getElementById('subtotal').textContent = 'Rp 0';
+                document.getElementById('tax').textContent = 'Rp 0';
+                document.getElementById('total').textContent = 'Rp 0';
+                return;
+            }
+            
+            let html = '';
+            let subtotal = 0;
+            
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                subtotal += itemTotal;
+                
+                html += `
+                    <div class="order-item">
+                        <div class="order-image" style="background-image: url('${item.image}');"></div>
+                        <div class="order-details">
+                            <h4>${item.name}</h4>
+                            <p>Rp ${formatNumber(item.price)}</p>
+                            <div class="quantity-controls">
+                                <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
+                                <span>${item.quantity}</span>
+                                <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+                            </div>
+                        </div>
+                        <button class="remove-btn" onclick="removeFromCart(${item.id})">×</button>
+                    </div>
+                `;
+            });
+            
+            cartItems.innerHTML = html;
+            
+            const tax = subtotal * 0.1;
+            const total = subtotal + tax;
+            
+            document.getElementById('subtotal').textContent = 'Rp ' + formatNumber(subtotal);
+            document.getElementById('tax').textContent = 'Rp ' + formatNumber(tax);
+            document.getElementById('total').textContent = 'Rp ' + formatNumber(total);
+        }
+        
+        // Update jumlah item
+        async function updateQuantity(id, quantity) {
+            try {
+                const response = await fetch('/api/cart/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: id, quantity: quantity })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    cart = data.cart;
+                    updateCartDisplay();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Hapus item dari cart
+        async function removeFromCart(id) {
+            try {
+                const response = await fetch('/api/cart/remove', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: id })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    cart = data.cart;
+                    updateCartDisplay();
+                    showNotification('Item dihapus dari keranjang');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Clear cart
+        async function clearCart() {
+            if (!confirm('Hapus semua item dari keranjang?')) return;
+            
+            try {
+                const response = await fetch('/api/cart/clear', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    cart = [];
+                    updateCartDisplay();
+                    showNotification('Keranjang dikosongkan');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Checkout - Buka modal pembayaran
+        function checkout() {
+            if (cart.length === 0) {
+                alert('Keranjang masih kosong!');
+                return;
+            }
+            
+            // Hitung total
+            let subtotal = 0;
+            cart.forEach(item => {
+                subtotal += item.price * item.quantity;
+            });
+            
+            const tax = subtotal * 0.1;
+            const total = subtotal + tax;
+            
+            // Update modal
+            document.getElementById('modal-subtotal').textContent = 'Rp ' + formatNumber(subtotal);
+            document.getElementById('modal-tax').textContent = 'Rp ' + formatNumber(tax);
+            document.getElementById('modal-total').textContent = 'Rp ' + formatNumber(total);
+            
+            // Reset payment method ke cash dan tampilkan input
+            selectedPayment = 'cash';
+            document.querySelectorAll('.payment-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            document.querySelector('.payment-option[onclick*="cash"]').classList.add('selected');
+            document.getElementById('cash-input-section').style.display = 'block';
+            document.getElementById('cash-amount').value = '';
+            document.getElementById('change-amount').textContent = 'Rp 0';
+            document.getElementById('change-amount').style.color = '#4CAF50';
+            
+            // Tampilkan modal
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+        
+        // Tutup modal
+        function closePaymentModal() {
+            document.getElementById('paymentModal').style.display = 'none';
+        }
+        
+        // Pilih metode pembayaran
+        let selectedPayment = 'cash';
+        let currentTotal = 0;
+        
+        function selectPayment(method) {
+            selectedPayment = method;
+            document.querySelectorAll('.payment-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            event.currentTarget.querySelector('input[type="radio"]').checked = true;
+            
+            // Tampilkan input tunai jika metode cash
+            const cashSection = document.getElementById('cash-input-section');
+            if (method === 'cash') {
+                cashSection.style.display = 'block';
+                document.getElementById('cash-amount').value = '';
+                document.getElementById('change-amount').textContent = 'Rp 0';
+            } else {
+                cashSection.style.display = 'none';
+            }
+        }
+        
+        // Set quick cash amount
+        function setQuickCash(amount) {
+            document.getElementById('cash-amount').value = amount;
+            calculateChange();
+        }
+        
+        // Hitung kembalian
+        function calculateChange() {
+            const cashAmount = parseInt(document.getElementById('cash-amount').value) || 0;
+            const totalText = document.getElementById('modal-total').textContent;
+            const total = parseInt(totalText.replace(/[^0-9]/g, ''));
+            
+            const change = cashAmount - total;
+            
+            if (change >= 0) {
+                document.getElementById('change-amount').textContent = 'Rp ' + formatNumber(change);
+                document.getElementById('change-amount').style.color = '#4CAF50';
+            } else {
+                document.getElementById('change-amount').textContent = 'Rp ' + formatNumber(Math.abs(change)) + ' (Kurang)';
+                document.getElementById('change-amount').style.color = '#ff4444';
+            }
+        }
+        
+        // Konfirmasi pembayaran
+        async function confirmPayment() {
+            // Validasi untuk pembayaran tunai
+            if (selectedPayment === 'cash') {
+                const cashAmount = parseInt(document.getElementById('cash-amount').value) || 0;
+                const totalText = document.getElementById('modal-total').textContent;
+                const total = parseInt(totalText.replace(/[^0-9]/g, ''));
+                
+                if (cashAmount === 0) {
+                    alert('Silakan masukkan jumlah uang tunai!');
+                    return;
+                }
+                
+                if (cashAmount < total) {
+                    alert('Uang tunai tidak cukup!\nKurang: Rp ' + formatNumber(total - cashAmount));
+                    return;
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ payment_method: selectedPayment })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    closePaymentModal();
+                    
+                    // Nama metode pembayaran
+                    const paymentNames = {
+                        'cash': 'Tunai',
+                        'debit': 'Kartu Debit',
+                        'credit': 'Kartu Kredit',
+                        'ewallet': 'E-Wallet',
+                        'qris': 'QRIS',
+                        'transfer': 'Transfer Bank'
+                    };
+                    
+                    // Simpan transaksi ke localStorage
+                    transactions.push(data.transaction);
+                    localStorage.setItem('transactions', JSON.stringify(transactions));
+                    
+                    let alertMessage = '✓ Pembayaran Berhasil!\n\n' +
+                          'ID Transaksi: ' + data.transaction.id + '\n' +
+                          'Metode: ' + paymentNames[selectedPayment] + '\n' +
+                          'Total: Rp ' + formatNumber(data.transaction.total);
+                    
+                    // Tambahkan info kembalian jika tunai
+                    if (selectedPayment === 'cash') {
+                        const cashAmount = parseInt(document.getElementById('cash-amount').value);
+                        const totalText = document.getElementById('modal-total').textContent;
+                        const total = parseInt(totalText.replace(/[^0-9]/g, ''));
+                        const change = cashAmount - total;
+                        
+                        alertMessage += '\n\nUang Tunai: Rp ' + formatNumber(cashAmount);
+                        alertMessage += '\nKembalian: Rp ' + formatNumber(change);
+                    }
+                    
+                    alertMessage += '\n\nTerima kasih atas pembelian Anda!';
+                    
+                    alert(alertMessage);
+                    
+                    cart = [];
+                    updateCartDisplay();
+                    selectedPayment = 'cash';
+                    updateIncomeStats();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Terjadi kesalahan saat checkout');
+            }
+        }
+        
+        // Tutup modal jika klik di luar
+        window.onclick = function(event) {
+            const modal = document.getElementById('paymentModal');
+            if (event.target === modal) {
+                closePaymentModal();
+            }
+        }
+        
+        // Format angka dengan separator
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+        
+        // Notifikasi
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 2000);
+        }
+        
+        // Load transaksi dari localStorage
+        function loadTransactions() {
+            const saved = localStorage.getItem('transactions');
+            if (saved) {
+                transactions = JSON.parse(saved);
+                // Filter hanya transaksi hari ini
+                const today = new Date().toISOString().split('T')[0];
+                transactions = transactions.filter(t => t.date.startsWith(today));
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+            }
+        }
+        
+        // Update statistik pemasukan
+        function updateIncomeStats() {
+            const totalIncome = transactions.reduce((sum, t) => sum + t.total, 0);
+            const totalTrans = transactions.length;
+            const avgTrans = totalTrans > 0 ? totalIncome / totalTrans : 0;
+            
+            document.getElementById('total-income').textContent = 'Rp ' + formatNumber(totalIncome);
+            document.getElementById('total-transactions').textContent = totalTrans;
+            document.getElementById('avg-transaction').textContent = 'Rp ' + formatNumber(Math.round(avgTrans));
+            
+            // Update tabel transaksi
+            const tbody = document.getElementById('transactions-body');
+            
+            if (transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-data">Belum ada transaksi hari ini</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            const paymentNames = {
+                'cash': 'Tunai',
+                'debit': 'Kartu Debit',
+                'credit': 'Kartu Kredit',
+                'ewallet': 'E-Wallet',
+                'qris': 'QRIS',
+                'transfer': 'Transfer Bank'
+            };
+            
+            transactions.reverse().forEach(t => {
+                const itemsList = t.items.map(item => `${item.name} (${item.quantity}x)`).join(', ');
+                html += `
+                    <tr>
+                        <td><strong>${t.id}</strong></td>
+                        <td>${t.date}</td>
+                        <td>${itemsList}</td>
+                        <td>${paymentNames[t.payment_method]}</td>
+                        <td><strong>Rp ${formatNumber(t.total)}</strong></td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+        
+        // Export transaksi
+        function exportTransactions() {
+            if (transactions.length === 0) {
+                alert('Tidak ada transaksi untuk di-export');
+                return;
+            }
+            
+            let csv = 'ID Transaksi,Tanggal,Item,Metode Bayar,Subtotal,Pajak,Total\n';
+            
+            transactions.forEach(t => {
+                const items = t.items.map(item => `${item.name} (${item.quantity}x)`).join('; ');
+                const paymentNames = {
+                    'cash': 'Tunai',
+                    'debit': 'Kartu Debit',
+                    'credit': 'Kartu Kredit',
+                    'ewallet': 'E-Wallet',
+                    'qris': 'QRIS',
+                    'transfer': 'Transfer Bank'
+                };
+                csv += `${t.id},"${t.date}","${items}",${paymentNames[t.payment_method]},${t.subtotal},${t.tax},${t.total}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pemasukan_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            
+            showNotification('✓ Data berhasil di-export');
+        }
+        
+        // Notification History Functions
+        function showNotificationHistory() {
+            updateNotificationList();
+            document.getElementById('notificationModal').style.display = 'flex';
+        }
+        
+        function closeNotificationModal() {
+            document.getElementById('notificationModal').style.display = 'none';
+        }
+        
+        function updateNotificationList() {
+            const listContainer = document.getElementById('notification-list');
+            
+            if (notificationHistory.length === 0) {
+                listContainer.innerHTML = '<p class="empty-notif">Belum ada notifikasi</p>';
+                return;
+            }
+            
+            let html = '';
+            notificationHistory.forEach(notif => {
+                const icon = notif.type === 'success' ? '✓' : notif.type === 'error' ? '✗' : 'ℹ';
+                const color = notif.type === 'success' ? '#4CAF50' : notif.type === 'error' ? '#ff4444' : '#2196F3';
+                
+                html += `
+                    <div class="notif-item">
+                        <div class="notif-icon" style="color: ${color}">${icon}</div>
+                        <div class="notif-content">
+                            <div class="notif-message">${notif.message}</div>
+                            <div class="notif-time">${notif.time}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            listContainer.innerHTML = html;
+        }
+        
+        function clearNotificationHistory() {
+            if (confirm('Hapus semua riwayat notifikasi?')) {
+                notificationHistory = [];
+                updateNotificationList();
+                updateNotificationBadge();
+                showNotification('Riwayat notifikasi dihapus');
+            }
+        }
+        
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notif-badge');
+            if (notificationHistory.length > 0) {
+                badge.textContent = notificationHistory.length;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        
+        // Override showNotification to save history
+        const originalShowNotification = showNotification;
+        showNotification = function(message, type = 'success') {
+            // Save to history
+            const now = new Date();
+            notificationHistory.unshift({
+                message: message,
+                type: type,
+                time: now.toLocaleTimeString('id-ID')
+            });
+            
+            // Keep only last 50
+            if (notificationHistory.length > 50) {
+                notificationHistory = notificationHistory.slice(0, 50);
+            }
+            
+            updateNotificationBadge();
+            
+            // Show toast notification
+            originalShowNotification(message);
+        };
+    </script>
+</body>
+</html>

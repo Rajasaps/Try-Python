@@ -1,0 +1,122 @@
+[
+  {
+    "id": "20251129235723",
+    "items": [
+      {
+        "id": 1,
+        "item_key": "1_",
+        "name": "Bakso Malang",
+        "price": 23000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 5,
+        "item_key": "5_Dingin",
+        "name": "Tea (Dingin)",
+        "price": 6000,
+        "quantity": 1,
+        "variant": "Dingin"
+      }
+    ],
+    "total": 31900.0,
+    "payment_method": "cash",
+    "date": "2025-11-29 23:57:23"
+  },
+  {
+    "id": "20251130001419",
+    "items": [
+      {
+        "id": 1,
+        "item_key": "1_",
+        "name": "Bakso Malang",
+        "price": 23000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 2,
+        "item_key": "2_",
+        "name": "Seblak Special",
+        "price": 16000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 5,
+        "item_key": "5_Dingin",
+        "name": "Tea (Dingin)",
+        "price": 6000,
+        "quantity": 1,
+        "variant": "Dingin"
+      }
+    ],
+    "total": 49500.0,
+    "payment_method": "qris",
+    "date": "2025-11-30 00:14:19"
+  },
+  {
+    "id": "20251130002319",
+    "items": [
+      {
+        "id": 1,
+        "item_key": "1_",
+        "name": "Bakso Malang",
+        "price": 23000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 5,
+        "item_key": "5_Dingin",
+        "name": "Tea (Dingin)",
+        "price": 6000,
+        "quantity": 1,
+        "variant": "Dingin"
+      }
+    ],
+    "total": 31900.0,
+    "payment_method": "cash",
+    "date": "2025-11-30 00:23:19"
+  },
+  {
+    "id": "20251130002836",
+    "items": [
+      {
+        "id": 1,
+        "item_key": "1_",
+        "name": "Bakso Malang",
+        "price": 23000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 2,
+        "item_key": "2_",
+        "name": "Seblak Special",
+        "price": 16000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 4,
+        "item_key": "4_",
+        "name": "Siomay",
+        "price": 11000,
+        "quantity": 1,
+        "variant": ""
+      },
+      {
+        "id": 5,
+        "item_key": "5_Dingin",
+        "name": "Tea (Dingin)",
+        "price": 6000,
+        "quantity": 1,
+        "variant": "Dingin"
+      }
+    ],
+    "total": 61600.0,
+    "payment_method": "transfer",
+    "date": "2025-11-30 00:28:36"
+  }
+]
