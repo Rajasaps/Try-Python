@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Variant</title>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .variant-btn {
+            display: block;
+            width: 200px;
+            padding: 15px;
+            margin: 10px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Variant Modal</h1>
+    <button onclick="showVariantModal(5, 'Tea', 6000, '/static/images/Tea.jpg', ['Dingin', 'Hangat'])">
+        Klik untuk Test Tea
+    </button>
+
+    <div id="variantModal" class="modal">
+        <div class="modal-content">
+            <h2 id="variant-item-name">Pilih Varian</h2>
+            <button onclick="closeVariantModal()">Tutup</button>
+            <div id="variant-options"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentVariantItem = {};
+        
+        function showVariantModal(id, name, price, image, variants) {
+            console.log('showVariantModal called:', {id, name, price, image, variants});
+            currentVariantItem = { id, name, price, image };
+            document.getElementById('variant-item-name').textContent = name;
+            
+            const variantOptions = document.getElementById('variant-options');
+            let html = '';
+            
+            variants.forEach(variant => {
+                html += `
+                    <button class="variant-btn" onclick="selectVariant('${variant}')">
+                        ${variant}
+                    </button>
+                `;
+            });
+            
+            variantOptions.innerHTML = html;
+            document.getElementById('variantModal').style.display = 'flex';
+        }
+        
+        function closeVariantModal() {
+            document.getElementById('variantModal').style.display = 'none';
+        }
+        
+        function selectVariant(variant) {
+            alert('Anda memilih: ' + variant);
+            closeVariantModal();
+        }
+    </script>
+</body>
+</html>
