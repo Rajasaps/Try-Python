@@ -46,6 +46,20 @@ class KedaiHaunaApp:
         self.notification_queue = []
         self.notification_history = []
     
+    def bind_mousewheel(self, canvas):
+        """Bind mouse wheel to canvas for scrolling"""
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def on_enter(event):
+            canvas.bind_all("<MouseWheel>", on_mousewheel)
+        
+        def on_leave(event):
+            canvas.unbind_all("<MouseWheel>")
+        
+        canvas.bind("<Enter>", on_enter)
+        canvas.bind("<Leave>", on_leave)
+    
     def show_notification(self, message, duration=3000, type="success"):
         """Tampilkan notifikasi toast di pojok kanan atas"""
         # Save to history
@@ -181,6 +195,9 @@ class KedaiHaunaApp:
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=10)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=10)
         
+        # Enable mouse wheel scrolling
+        self.bind_mousewheel(canvas)
+        
         # Display notifications
         if not self.notification_history:
             tk.Label(list_frame, text="Belum ada notifikasi", font=("Segoe UI", 11),
@@ -232,18 +249,18 @@ class KedaiHaunaApp:
     
     def setup_ui(self):
         # Container utama
-        main_container = tk.Frame(self.root, bg=self.colors['bg_dark'])
-        main_container.pack(fill=tk.BOTH, expand=True)
+        self.main_container = tk.Frame(self.root, bg=self.colors['bg_dark'])
+        self.main_container.pack(fill=tk.BOTH, expand=True)
         
         # Sidebar kiri
-        self.setup_sidebar(main_container)
+        self.setup_sidebar(self.main_container)
         
         # Content area tengah
-        self.content_frame = tk.Frame(main_container, bg=self.colors['bg_dark'])
+        self.content_frame = tk.Frame(self.main_container, bg=self.colors['bg_dark'])
         self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        # Sidebar kanan (cart)
-        self.setup_cart_sidebar(main_container)
+        # Cart sidebar akan dibuat di show_kasir_page
+        self.cart_sidebar = None
         
         # Show kasir page
         self.show_kasir_page()
@@ -293,9 +310,10 @@ class KedaiHaunaApp:
                  borderwidth=0).pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=20)
 
     def setup_cart_sidebar(self, parent):
-        cart_sidebar = tk.Frame(parent, bg=self.colors['bg_sidebar'], width=300)
-        cart_sidebar.pack(side=tk.RIGHT, fill=tk.Y)
-        cart_sidebar.pack_propagate(False)
+        self.cart_sidebar = tk.Frame(parent, bg=self.colors['bg_sidebar'], width=300)
+        self.cart_sidebar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.cart_sidebar.pack_propagate(False)
+        cart_sidebar = self.cart_sidebar  # Keep local variable for compatibility
         
         # Logo card - Compact for small screens
         logo_frame = tk.Frame(cart_sidebar, bg=self.colors['bg_card'])
@@ -340,8 +358,8 @@ class KedaiHaunaApp:
         tk.Button(cart_header, text="🗑️", font=("Arial", 11), bg=self.colors['bg_card'],
                  fg="white", relief=tk.FLAT, command=self.clear_cart).pack(side=tk.RIGHT)
         
-        # Cart items scrollable - Reduced height for small screens
-        cart_scroll_container = tk.Frame(cart_section, bg=self.colors['bg_card'], height=180)
+        # Cart items scrollable - Increased height to show more items
+        cart_scroll_container = tk.Frame(cart_section, bg=self.colors['bg_card'], height=280)
         cart_scroll_container.pack(fill=tk.X, padx=15)
         cart_scroll_container.pack_propagate(False)
         
@@ -357,30 +375,33 @@ class KedaiHaunaApp:
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Summary - Compact for small screens
+        # Enable mouse wheel scrolling
+        self.bind_mousewheel(canvas)
+        
+        # Summary - Very compact for small screens
         summary_frame = tk.Frame(cart_section, bg=self.colors['bg_card'])
-        summary_frame.pack(fill=tk.X, padx=15, pady=8)
+        summary_frame.pack(fill=tk.X, padx=15, pady=5)
         
         self.subtotal_label = tk.Label(summary_frame, text="Subtotal: Rp 0", 
-                                       font=("Arial", 9), bg=self.colors['bg_card'], 
+                                       font=("Arial", 8), bg=self.colors['bg_card'], 
                                        fg="white", anchor="w")
-        self.subtotal_label.pack(fill=tk.X, pady=2)
+        self.subtotal_label.pack(fill=tk.X, pady=1)
         
         self.tax_label = tk.Label(summary_frame, text="Pajak (10%): Rp 0",
-                                  font=("Arial", 9), bg=self.colors['bg_card'],
+                                  font=("Arial", 8), bg=self.colors['bg_card'],
                                   fg="white", anchor="w")
-        self.tax_label.pack(fill=tk.X, pady=2)
+        self.tax_label.pack(fill=tk.X, pady=1)
         
-        tk.Frame(summary_frame, bg=self.colors['border'], height=1).pack(fill=tk.X, pady=5)
+        tk.Frame(summary_frame, bg=self.colors['border'], height=1).pack(fill=tk.X, pady=3)
         
         self.total_label = tk.Label(summary_frame, text="Total: Rp 0",
-                                    font=("Arial", 12, "bold"), bg=self.colors['bg_card'],
+                                    font=("Arial", 11, "bold"), bg=self.colors['bg_card'],
                                     fg="white", anchor="w")
-        self.total_label.pack(fill=tk.X, pady=3)
+        self.total_label.pack(fill=tk.X, pady=2)
         
-        tk.Button(summary_frame, text="Bayar Sekarang", font=("Arial", 11, "bold"),
+        tk.Button(summary_frame, text="Bayar Sekarang", font=("Arial", 10, "bold"),
                  bg=self.colors['accent'], fg="white", relief=tk.FLAT,
-                 command=self.checkout, pady=10).pack(fill=tk.X, pady=8)
+                 command=self.checkout, pady=8).pack(fill=tk.X, pady=5)
 
     def show_kasir_page(self):
         # Update button styles
@@ -389,6 +410,11 @@ class KedaiHaunaApp:
         
         for widget in self.content_frame.winfo_children():
             widget.destroy()
+        
+        # Show cart sidebar (only in kasir page)
+        if self.cart_sidebar:
+            self.cart_sidebar.destroy()
+        self.setup_cart_sidebar(self.main_container)
         
         # Header dengan search
         header = tk.Frame(self.content_frame, bg=self.colors['bg_dark'])
@@ -460,6 +486,9 @@ class KedaiHaunaApp:
         
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Enable mouse wheel scrolling
+        self.bind_mousewheel(canvas)
         
         # Configure grid columns untuk 3 kolom
         menu_container.grid_columnconfigure(0, weight=1, uniform="col")
@@ -674,33 +703,34 @@ class KedaiHaunaApp:
     
     def create_cart_item(self, item):
         item_frame = tk.Frame(self.cart_items_frame, bg=self.colors['bg_card'])
-        item_frame.pack(fill=tk.X, pady=8)
+        item_frame.pack(fill=tk.X, pady=3)
+        
+        # Right: Remove button (pack first for proper alignment)
+        remove_btn = tk.Button(item_frame, text="×", font=("Arial", 14, "bold"), 
+                               bg=self.colors['accent'], fg="white", relief=tk.FLAT, 
+                               width=2, command=lambda: self.remove_from_cart(item))
+        remove_btn.pack(side=tk.RIGHT, padx=3)
         
         # Left: Info
         info_frame = tk.Frame(item_frame, bg=self.colors['bg_card'])
         info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        tk.Label(info_frame, text=item["name"], font=("Arial", 10, "bold"),
+        tk.Label(info_frame, text=item["name"], font=("Arial", 9, "bold"),
                 bg=self.colors['bg_card'], fg="white", anchor="w").pack(fill=tk.X)
-        tk.Label(info_frame, text=f"Rp {item['price']:,}", font=("Arial", 9),
+        tk.Label(info_frame, text=f"Rp {item['price']:,}", font=("Arial", 8),
                 bg=self.colors['bg_card'], fg=self.colors['text_gray'], 
                 anchor="w").pack(fill=tk.X)
         
-        # Quantity controls
+        # Quantity controls - Compact
         qty_frame = tk.Frame(info_frame, bg=self.colors['bg_card'])
-        qty_frame.pack(fill=tk.X, pady=5)
+        qty_frame.pack(fill=tk.X, pady=3)
         
-        tk.Button(qty_frame, text="-", font=("Arial", 9), bg="#333333", fg="white",
+        tk.Button(qty_frame, text="-", font=("Arial", 8), bg="#333333", fg="white",
                  relief=tk.FLAT, width=2, command=lambda: self.update_quantity(item, -1)).pack(side=tk.LEFT)
-        tk.Label(qty_frame, text=str(item["quantity"]), font=("Arial", 10, "bold"),
-                bg=self.colors['bg_card'], fg="white", width=3).pack(side=tk.LEFT, padx=5)
-        tk.Button(qty_frame, text="+", font=("Arial", 9), bg="#333333", fg="white",
+        tk.Label(qty_frame, text=str(item["quantity"]), font=("Arial", 9, "bold"),
+                bg=self.colors['bg_card'], fg="white", width=3).pack(side=tk.LEFT, padx=3)
+        tk.Button(qty_frame, text="+", font=("Arial", 8), bg="#333333", fg="white",
                  relief=tk.FLAT, width=2, command=lambda: self.update_quantity(item, 1)).pack(side=tk.LEFT)
-        
-        # Right: Remove button
-        tk.Button(item_frame, text="×", font=("Arial", 14), bg=self.colors['accent'],
-                 fg="white", relief=tk.FLAT, width=2,
-                 command=lambda: self.remove_from_cart(item)).pack(side=tk.RIGHT)
     
     def update_quantity(self, item, change):
         item["quantity"] += change
@@ -1205,6 +1235,11 @@ class KedaiHaunaApp:
         self.btn_kasir.config(bg=self.colors['bg_card'], fg=self.colors['text_gray'])
         self.btn_pemasukan.config(bg="white", fg=self.colors['accent'])
         
+        # Hide cart sidebar (only show in kasir page)
+        if self.cart_sidebar:
+            self.cart_sidebar.destroy()
+            self.cart_sidebar = None
+        
         for widget in self.content_frame.winfo_children():
             widget.destroy()
         
@@ -1225,9 +1260,10 @@ class KedaiHaunaApp:
         self.create_stat_card(stats_frame, "📈", "Rata-rata Transaksi", 
                              f"Rp {avg_trans:,.0f}", 2)
         
-        # Table
-        table_frame = tk.Frame(self.content_frame, bg=self.colors['bg_card'])
-        table_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        # Table - Optimized height for 1366x768 screens
+        table_frame = tk.Frame(self.content_frame, bg=self.colors['bg_card'], height=400)
+        table_frame.pack(fill=tk.BOTH, padx=20, pady=10)
+        table_frame.pack_propagate(False)
         
         tk.Label(table_frame, text="Riwayat Transaksi", font=("Arial", 14, "bold"),
                 bg=self.colors['bg_card'], fg="white").pack(pady=15, padx=20, anchor="w")
@@ -1330,42 +1366,39 @@ class KedaiHaunaApp:
         
         tree.bind("<Double-Button-1>", on_double_click)
         
-        # Add info box with better visibility
-        info_frame = tk.Frame(table_frame, bg=self.colors['bg_dark'])
-        info_frame.pack(fill=tk.X, pady=(10, 5), padx=20)
+        # Bottom section (outside table_frame) - Compact for small screens
+        bottom_section = tk.Frame(self.content_frame, bg=self.colors['bg_dark'])
+        bottom_section.pack(fill=tk.X, padx=20, pady=10)
         
-        # Icon
-        tk.Label(info_frame, text="💡", font=("Segoe UI", 14),
-                bg=self.colors['bg_dark'], fg="#FFA500").pack(side=tk.LEFT, padx=(10, 8))
+        # Left: Tips
+        tips_frame = tk.Frame(bottom_section, bg=self.colors['bg_dark'])
+        tips_frame.pack(side=tk.LEFT)
         
-        # Text - shorter and clearer
-        tk.Label(info_frame, text="Double-click baris untuk lihat detail transaksi", 
-                font=("Segoe UI", 10, "bold"),
-                bg=self.colors['bg_dark'], fg="white").pack(side=tk.LEFT, pady=12)
+        tk.Label(tips_frame, text="💡", font=("Segoe UI", 12),
+                bg=self.colors['bg_dark'], fg="#FFA500").pack(side=tk.LEFT, padx=(5, 5))
         
-        # Export section in separate row below
-        export_container = tk.Frame(table_frame, bg=self.colors['bg_card'])
-        export_container.pack(fill=tk.X, pady=(5, 15), padx=20)
+        tk.Label(tips_frame, text="Double-click baris untuk lihat detail", 
+                font=("Segoe UI", 9),
+                bg=self.colors['bg_dark'], fg=self.colors['text_gray']).pack(side=tk.LEFT)
         
-        # Label on the left
-        tk.Label(export_container, text="📥 Export Laporan:", font=("Segoe UI", 10, "bold"),
-                bg=self.colors['bg_card'], fg="white").pack(side=tk.LEFT, padx=(15, 15), pady=12)
+        # Right: Export buttons (horizontal, compact)
+        export_frame = tk.Frame(bottom_section, bg=self.colors['bg_dark'])
+        export_frame.pack(side=tk.RIGHT)
         
-        # Export buttons frame (vertical stack)
-        export_buttons_frame = tk.Frame(export_container, bg=self.colors['bg_card'])
-        export_buttons_frame.pack(side=tk.LEFT, pady=5)
+        tk.Label(export_frame, text="📥 Export Laporan:", font=("Segoe UI", 9, "bold"),
+                bg=self.colors['bg_dark'], fg="white").pack(side=tk.LEFT, padx=(0, 8))
         
-        # Excel button on top
-        tk.Button(export_buttons_frame, text="📊 Export ke Excel", font=("Segoe UI", 9, "bold"),
+        # Excel button
+        tk.Button(export_frame, text="📊 Excel", font=("Segoe UI", 8, "bold"),
                  bg="#28a745", fg="white", relief=tk.FLAT,
                  command=self.export_to_excel, cursor="hand2",
-                 padx=18, pady=8, width=20, anchor="w").pack(pady=2)
+                 padx=12, pady=6).pack(side=tk.LEFT, padx=2)
         
-        # PDF button below
-        tk.Button(export_buttons_frame, text="📄 Export ke PDF", font=("Segoe UI", 9, "bold"),
+        # PDF button
+        tk.Button(export_frame, text="📄 PDF", font=("Segoe UI", 8, "bold"),
                  bg=self.colors['accent'], fg="white", relief=tk.FLAT,
                  command=self.export_to_pdf, cursor="hand2",
-                 padx=18, pady=8, width=20, anchor="w").pack(pady=2)
+                 padx=12, pady=6).pack(side=tk.LEFT, padx=2)
     
     def show_transaction_detail(self, transaction):
         """Tampilkan detail lengkap transaksi"""
@@ -1407,6 +1440,9 @@ class KedaiHaunaApp:
         
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Enable mouse wheel scrolling
+        self.bind_mousewheel(canvas)
         
         # Transaction info section
         info_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
@@ -1753,15 +1789,15 @@ class KedaiHaunaApp:
     
     def create_stat_card(self, parent, icon, title, value, col):
         card = tk.Frame(parent, bg=self.colors['bg_card'])
-        card.grid(row=0, column=col, padx=10, pady=10, sticky="nsew")
+        card.grid(row=0, column=col, padx=8, pady=8, sticky="nsew")
         parent.grid_columnconfigure(col, weight=1)
         
-        tk.Label(card, text=icon, font=("Arial", 36), bg=self.colors['bg_dark'],
-                fg="white").pack(pady=15)
-        tk.Label(card, text=title, font=("Arial", 10), bg=self.colors['bg_card'],
-                fg=self.colors['text_gray']).pack()
-        tk.Label(card, text=value, font=("Arial", 18, "bold"), bg=self.colors['bg_card'],
+        tk.Label(card, text=icon, font=("Arial", 28), bg=self.colors['bg_dark'],
                 fg="white").pack(pady=10)
+        tk.Label(card, text=title, font=("Arial", 9), bg=self.colors['bg_card'],
+                fg=self.colors['text_gray']).pack()
+        tk.Label(card, text=value, font=("Arial", 16, "bold"), bg=self.colors['bg_card'],
+                fg="white").pack(pady=8)
     
     def load_transactions(self):
         if os.path.exists("transactions.json"):
