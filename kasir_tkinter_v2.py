@@ -297,51 +297,51 @@ class KedaiHaunaApp:
         cart_sidebar.pack(side=tk.RIGHT, fill=tk.Y)
         cart_sidebar.pack_propagate(False)
         
-        # Logo card
+        # Logo card - Compact for small screens
         logo_frame = tk.Frame(cart_sidebar, bg=self.colors['bg_card'])
-        logo_frame.pack(fill=tk.X, padx=15, pady=15)
+        logo_frame.pack(fill=tk.X, padx=15, pady=10)
         
-        # Logo Kedai Hauna
-        logo_bg = tk.Frame(logo_frame, bg=self.colors['accent'], width=60, height=60)
-        logo_bg.pack(pady=15)
+        # Logo Kedai Hauna - Smaller
+        logo_bg = tk.Frame(logo_frame, bg=self.colors['accent'], width=45, height=45)
+        logo_bg.pack(pady=8)
         logo_bg.pack_propagate(False)
         
-        tk.Label(logo_bg, text="🍜", font=("Arial", 32), 
+        tk.Label(logo_bg, text="🍜", font=("Arial", 24), 
                 bg=self.colors['accent'], fg="white").pack(expand=True)
         
-        tk.Label(logo_frame, text="Kedai Hauna", font=("Segoe UI", 14, "bold"),
+        tk.Label(logo_frame, text="Kedai Hauna", font=("Segoe UI", 12, "bold"),
                 bg=self.colors['bg_card'], fg="white").pack()
-        tk.Label(logo_frame, text="📍 Purbalingga, Indonesia", font=("Segoe UI", 9),
-                bg=self.colors['bg_card'], fg=self.colors['text_gray']).pack(pady=5)
+        tk.Label(logo_frame, text="📍 Purbalingga, Indonesia", font=("Segoe UI", 8),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray']).pack(pady=3)
         
-        # Customer name input
+        # Customer name input - Compact
         customer_frame = tk.Frame(logo_frame, bg=self.colors['bg_card'])
-        customer_frame.pack(fill=tk.X, padx=10, pady=10)
+        customer_frame.pack(fill=tk.X, padx=10, pady=8)
         
-        tk.Label(customer_frame, text="Nama Customer:", font=("Segoe UI", 10),
-                bg=self.colors['bg_card'], fg=self.colors['text_gray'], anchor="w").pack(fill=tk.X, pady=(0, 5))
+        tk.Label(customer_frame, text="Nama Customer:", font=("Segoe UI", 9),
+                bg=self.colors['bg_card'], fg=self.colors['text_gray'], anchor="w").pack(fill=tk.X, pady=(0, 3))
         
         self.customer_name_var = tk.StringVar()
         customer_entry = tk.Entry(customer_frame, textvariable=self.customer_name_var,
-                                  font=("Segoe UI", 11), bg=self.colors['bg_dark'],
+                                  font=("Segoe UI", 10), bg=self.colors['bg_dark'],
                                   fg="white", relief=tk.FLAT, insertbackground="white")
-        customer_entry.pack(fill=tk.X, ipady=8, padx=2)
+        customer_entry.pack(fill=tk.X, ipady=6, padx=2)
         
         # Cart section
         cart_section = tk.Frame(cart_sidebar, bg=self.colors['bg_card'])
-        cart_section.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+        cart_section.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
         
-        # Cart header
+        # Cart header - Compact
         cart_header = tk.Frame(cart_section, bg=self.colors['bg_card'])
-        cart_header.pack(fill=tk.X, padx=15, pady=10)
+        cart_header.pack(fill=tk.X, padx=15, pady=5)
         
-        tk.Label(cart_header, text="Keranjang Belanja", font=("Arial", 12, "bold"),
+        tk.Label(cart_header, text="Keranjang Belanja", font=("Arial", 11, "bold"),
                 bg=self.colors['bg_card'], fg="white").pack(side=tk.LEFT)
-        tk.Button(cart_header, text="🗑️", font=("Arial", 12), bg=self.colors['bg_card'],
+        tk.Button(cart_header, text="🗑️", font=("Arial", 11), bg=self.colors['bg_card'],
                  fg="white", relief=tk.FLAT, command=self.clear_cart).pack(side=tk.RIGHT)
         
-        # Cart items scrollable dengan height yang fixed
-        cart_scroll_container = tk.Frame(cart_section, bg=self.colors['bg_card'], height=280)
+        # Cart items scrollable - Reduced height for small screens
+        cart_scroll_container = tk.Frame(cart_section, bg=self.colors['bg_card'], height=180)
         cart_scroll_container.pack(fill=tk.X, padx=15)
         cart_scroll_container.pack_propagate(False)
         
@@ -357,30 +357,30 @@ class KedaiHaunaApp:
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Summary
+        # Summary - Compact for small screens
         summary_frame = tk.Frame(cart_section, bg=self.colors['bg_card'])
-        summary_frame.pack(fill=tk.X, padx=15, pady=15)
+        summary_frame.pack(fill=tk.X, padx=15, pady=8)
         
         self.subtotal_label = tk.Label(summary_frame, text="Subtotal: Rp 0", 
-                                       font=("Arial", 10), bg=self.colors['bg_card'], 
+                                       font=("Arial", 9), bg=self.colors['bg_card'], 
                                        fg="white", anchor="w")
-        self.subtotal_label.pack(fill=tk.X, pady=3)
+        self.subtotal_label.pack(fill=tk.X, pady=2)
         
         self.tax_label = tk.Label(summary_frame, text="Pajak (10%): Rp 0",
-                                  font=("Arial", 10), bg=self.colors['bg_card'],
+                                  font=("Arial", 9), bg=self.colors['bg_card'],
                                   fg="white", anchor="w")
-        self.tax_label.pack(fill=tk.X, pady=3)
+        self.tax_label.pack(fill=tk.X, pady=2)
         
-        tk.Frame(summary_frame, bg=self.colors['border'], height=2).pack(fill=tk.X, pady=8)
+        tk.Frame(summary_frame, bg=self.colors['border'], height=1).pack(fill=tk.X, pady=5)
         
         self.total_label = tk.Label(summary_frame, text="Total: Rp 0",
-                                    font=("Arial", 14, "bold"), bg=self.colors['bg_card'],
+                                    font=("Arial", 12, "bold"), bg=self.colors['bg_card'],
                                     fg="white", anchor="w")
-        self.total_label.pack(fill=tk.X, pady=5)
+        self.total_label.pack(fill=tk.X, pady=3)
         
-        tk.Button(summary_frame, text="Bayar Sekarang", font=("Arial", 12, "bold"),
+        tk.Button(summary_frame, text="Bayar Sekarang", font=("Arial", 11, "bold"),
                  bg=self.colors['accent'], fg="white", relief=tk.FLAT,
-                 command=self.checkout, pady=12).pack(fill=tk.X, pady=10)
+                 command=self.checkout, pady=10).pack(fill=tk.X, pady=8)
 
     def show_kasir_page(self):
         # Update button styles
