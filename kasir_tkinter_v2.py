@@ -861,12 +861,17 @@ class KedaiHaunaApp:
             
             def calculate_change(*args):
                 try:
-                    cash = int(cash_entry.get())
-                    change = cash - total
-                    if change >= 0:
-                        change_label.config(text=f"Kembalian: Rp {change:,.0f}", fg="#4CAF50")
+                    # Remove spaces and convert to int
+                    cash_str = cash_entry.get().strip().replace(" ", "").replace(",", "")
+                    if cash_str:
+                        cash = int(cash_str)
+                        change = cash - total
+                        if change >= 0:
+                            change_label.config(text=f"Kembalian: Rp {change:,.0f}", fg="#4CAF50")
+                        else:
+                            change_label.config(text=f"Kurang: Rp {abs(change):,.0f}", fg=self.colors['accent'])
                     else:
-                        change_label.config(text=f"Kurang: Rp {abs(change):,.0f}", fg=self.colors['accent'])
+                        change_label.config(text="Kembalian: Rp 0", fg="#4CAF50")
                 except:
                     change_label.config(text="Kembalian: Rp 0", fg="#4CAF50")
             
@@ -874,14 +879,22 @@ class KedaiHaunaApp:
             
             def confirm_cash():
                 try:
-                    cash = int(cash_entry.get())
+                    # Remove spaces and convert to int
+                    cash_str = cash_entry.get().strip().replace(" ", "").replace(",", "")
+                    if not cash_str:
+                        messagebox.showerror("Error", "Masukkan jumlah uang!")
+                        return
+                    
+                    cash = int(cash_str)
                     if cash < total:
                         messagebox.showerror("Error", f"Uang tidak cukup!\nKurang: Rp {total - cash:,.0f}")
                         return
                     cash_dialog.destroy()
                     self.finalize_payment(method, total, cash, dialog)
-                except:
-                    messagebox.showerror("Error", "Masukkan jumlah uang yang valid!")
+                except ValueError:
+                    messagebox.showerror("Error", "Masukkan jumlah uang yang valid!\nHanya angka yang diperbolehkan.")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
             
             tk.Button(cash_dialog, text="Konfirmasi", font=("Arial", 12, "bold"),
                      bg=self.colors['accent'], fg="white", relief=tk.FLAT, pady=10,
@@ -1648,17 +1661,20 @@ class KedaiHaunaApp:
                 items_list = [f"{item['name']} ({item['quantity']}x)" for item in trans['items']]
                 items_text = ", ".join(items_list)
                 
-                customer_name = trans.get('customer_name', 'Umum').title()
+                customer_name = str(trans.get('customer_name', 'Umum')).title()
+                
+                # Convert Decimal to float for Excel compatibility
+                total_value = float(trans['total']) if hasattr(trans['total'], '__float__') else trans['total']
                 
                 data = [
                     idx,
-                    trans['id'],
+                    str(trans['id']),
                     date_str,
                     time_str,
                     customer_name,
                     items_text,
                     payment_names.get(trans['payment_method'], trans['payment_method']),
-                    trans['total']
+                    total_value
                 ]
                 
                 for col, value in enumerate(data, 1):
@@ -1674,7 +1690,8 @@ class KedaiHaunaApp:
             
             # Summary
             row += 1
-            total_income = sum(t["total"] for t in self.transactions)
+            # Convert to float for sum calculation
+            total_income = sum(float(t["total"]) if hasattr(t["total"], '__float__') else t["total"] for t in self.transactions)
             total_trans = len(self.transactions)
             
             ws.merge_cells(f'A{row}:G{row}')
@@ -1856,8 +1873,23 @@ class KedaiHaunaApp:
     
     def save_transactions(self):
         """Save transactions to JSON as backup"""
-        with open("transactions.json", "w") as f:
-            json.dump(self.transactions, f, indent=2)
+        try:
+            # Convert Decimal to float for JSON serialization
+            def convert_decimal(obj):
+                if hasattr(obj, '__float__'):
+                    return float(obj)
+                elif isinstance(obj, dict):
+                    return {k: convert_decimal(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_decimal(item) for item in obj]
+                return obj
+            
+            transactions_json = convert_decimal(self.transactions)
+            
+            with open("transactions.json", "w") as f:
+                json.dump(transactions_json, f, indent=2)
+        except Exception as e:
+            print(f"Error saving to JSON: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
