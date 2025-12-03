@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import os
 from PIL import Image, ImageTk
+from db_config import Database, save_transaction, get_all_transactions, get_transaction_stats
 
 class KedaiHaunaApp:
     def __init__(self, root):
@@ -35,8 +36,21 @@ class KedaiHaunaApp:
         ]
         
         self.cart = []
-        self.transactions = self.load_transactions()
         self.images = {}
+        
+        # Initialize database connection
+        self.db = Database()
+        if not self.db.connect():
+            messagebox.showerror("Database Error", 
+                               "Tidak dapat terhubung ke database!\n\n"
+                               "Pastikan:\n"
+                               "1. XAMPP sudah running\n"
+                               "2. MySQL service aktif\n"
+                               "3. Database 'kedai_hauna' sudah dibuat\n\n"
+                               "Aplikasi akan menggunakan mode offline (JSON).")
+            self.db = None
+        
+        self.transactions = self.load_transactions()
         
         self.load_images()
         self.setup_ui()
@@ -879,8 +893,10 @@ class KedaiHaunaApp:
         # Get customer name
         customer_name = self.customer_name_var.get() if hasattr(self, 'customer_name_var') and self.customer_name_var.get() else "Umum"
         
+        transaction_id = datetime.now().strftime('%Y%m%d%H%M%S')
+        
         transaction = {
-            "id": datetime.now().strftime('%Y%m%d%H%M%S'),
+            "id": transaction_id,
             "items": self.cart.copy(),
             "total": total,
             "payment_method": method,
@@ -888,8 +904,19 @@ class KedaiHaunaApp:
             "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
+        # Save to database
+        if self.db:
+            try:
+                if save_transaction(self.db, transaction_id, customer_name, method, self.cart, total):
+                    self.show_notification("✓ Transaksi tersimpan ke database", duration=2000, type="success")
+                else:
+                    self.show_notification("⚠ Gagal simpan ke database, tersimpan di JSON", duration=3000, type="error")
+            except Exception as e:
+                print(f"Error saving to database: {e}")
+                self.show_notification("⚠ Error database, tersimpan di JSON", duration=3000, type="error")
+        
         self.transactions.append(transaction)
-        self.save_transactions()
+        self.save_transactions()  # Backup to JSON
         
         dialog.destroy()
         
@@ -1250,9 +1277,21 @@ class KedaiHaunaApp:
         stats_frame = tk.Frame(self.content_frame, bg=self.colors['bg_dark'])
         stats_frame.pack(fill=tk.X, padx=20, pady=10)
         
-        total_income = sum(t["total"] for t in self.transactions)
-        total_trans = len(self.transactions)
-        avg_trans = total_income / total_trans if total_trans > 0 else 0
+        # Get stats from database or calculate from transactions
+        if self.db:
+            try:
+                stats = get_transaction_stats(self.db)
+                total_income = stats['total_income']
+                total_trans = stats['total_transactions']
+                avg_trans = stats['avg_transaction']
+            except:
+                total_income = sum(t["total"] for t in self.transactions)
+                total_trans = len(self.transactions)
+                avg_trans = total_income / total_trans if total_trans > 0 else 0
+        else:
+            total_income = sum(t["total"] for t in self.transactions)
+            total_trans = len(self.transactions)
+            avg_trans = total_income / total_trans if total_trans > 0 else 0
         
         self.create_stat_card(stats_frame, "💵", "Total Pemasukan", 
                              f"Rp {total_income:,.0f}", 0)
@@ -1800,12 +1839,23 @@ class KedaiHaunaApp:
                 fg="white").pack(pady=8)
     
     def load_transactions(self):
+        """Load transactions from database or JSON fallback"""
+        if self.db:
+            try:
+                return get_all_transactions(self.db)
+            except Exception as e:
+                print(f"Error loading from database: {e}")
+                messagebox.showwarning("Database Warning", 
+                                     "Gagal load dari database, menggunakan JSON backup")
+        
+        # Fallback to JSON
         if os.path.exists("transactions.json"):
             with open("transactions.json", "r") as f:
                 return json.load(f)
         return []
     
     def save_transactions(self):
+        """Save transactions to JSON as backup"""
         with open("transactions.json", "w") as f:
             json.dump(self.transactions, f, indent=2)
 
