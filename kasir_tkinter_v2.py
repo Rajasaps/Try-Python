@@ -537,11 +537,28 @@ class KedaiHaunaApp:
             if search_text == "cari menu...":
                 search_text = ""
             
-            visible_count = 0
+            # Separate matched and unmatched items
+            matched_items = []
+            unmatched_items = []
+            
             for item_id, card_data in self.menu_cards.items():
                 item_name = card_data['item']['name'].lower()
                 if search_text in item_name or search_text == "":
-                    card_data['widget'].grid()
+                    matched_items.append((item_id, card_data))
+                else:
+                    unmatched_items.append((item_id, card_data))
+            
+            # Reorder: matched items first, then unmatched
+            all_items = matched_items + unmatched_items
+            
+            # Re-grid all items in new order
+            visible_count = 0
+            for idx, (item_id, card_data) in enumerate(all_items):
+                row = idx // 3
+                col = idx % 3
+                
+                if search_text == "" or (item_id, card_data) in matched_items:
+                    card_data['widget'].grid(row=row, column=col, padx=12, pady=12, sticky="nsew")
                     visible_count += 1
                 else:
                     card_data['widget'].grid_remove()
@@ -1029,8 +1046,10 @@ class KedaiHaunaApp:
         summary_frame = tk.Frame(content_frame, bg="white")
         summary_frame.pack(fill=tk.X)
         
-        subtotal = transaction['total'] / 1.1
-        tax = transaction['total'] - subtotal
+        # Convert Decimal to float
+        total_val = float(transaction['total']) if hasattr(transaction['total'], '__float__') else transaction['total']
+        subtotal = total_val / 1.1
+        tax = total_val - subtotal
         
         tk.Label(summary_frame, text=f"Subtotal: Rp {subtotal:,.0f}", 
                 font=("Courier New", 9), bg="white", fg="black", anchor="w").pack(fill=tk.X)
@@ -1198,8 +1217,10 @@ class KedaiHaunaApp:
             
             # Summary
             y -= 25
-            subtotal = transaction['total'] / 1.1
-            tax = transaction['total'] - subtotal
+            # Convert Decimal to float
+            total_val = float(transaction['total']) if hasattr(transaction['total'], '__float__') else transaction['total']
+            subtotal = total_val / 1.1
+            tax = total_val - subtotal
             
             c.setFont("Helvetica", 10)
             c.drawString(360, y, "Subtotal:")
@@ -1258,15 +1279,15 @@ class KedaiHaunaApp:
     def print_receipt_direct(self, transaction, cash_amount):
         """Print nota langsung ke printer (simplified - open file)"""
         try:
-            filename = f"nota_{transaction['id']}.txt"
+            filename_pdf = f"nota_{transaction['id']}.pdf"
             
-            # Save first
+            # Save PDF first
             self.save_receipt_pdf(transaction, cash_amount, None)
             
-            # Open file with default program
-            os.startfile(filename)
+            # Open PDF file with default program
+            os.startfile(filename_pdf)
             
-            self.show_notification("Nota dibuka untuk print", duration=2000)
+            self.show_notification("Nota PDF dibuka untuk print", duration=2000)
             
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuka nota: {str(e)}")
@@ -1454,10 +1475,10 @@ class KedaiHaunaApp:
     
     def show_transaction_detail(self, transaction):
         """Tampilkan detail lengkap transaksi"""
-        # Create detail window
+        # Create detail window - Adjusted for small screens
         detail_window = tk.Toplevel(self.root)
         detail_window.title(f"Detail Transaksi - {transaction['id']}")
-        detail_window.geometry("600x700")
+        detail_window.geometry("600x650")  # Reduced height for 768px screens
         detail_window.configure(bg=self.colors['bg_card'])
         detail_window.transient(self.root)
         
@@ -1496,12 +1517,12 @@ class KedaiHaunaApp:
         # Enable mouse wheel scrolling
         self.bind_mousewheel(canvas)
         
-        # Transaction info section
+        # Transaction info section - Compact
         info_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
-        info_section.pack(fill=tk.X, padx=20, pady=15)
+        info_section.pack(fill=tk.X, padx=20, pady=10)
         
-        tk.Label(info_section, text="Informasi Transaksi", font=("Segoe UI", 12, "bold"),
-                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(10, 15), padx=15)
+        tk.Label(info_section, text="Informasi Transaksi", font=("Segoe UI", 11, "bold"),
+                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(8, 10), padx=15)
         
         # Transaction details
         details = [
@@ -1516,7 +1537,7 @@ class KedaiHaunaApp:
         
         for label, value in details:
             detail_row = tk.Frame(info_section, bg=self.colors['bg_dark'])
-            detail_row.pack(fill=tk.X, padx=15, pady=5)
+            detail_row.pack(fill=tk.X, padx=15, pady=3)
             
             tk.Label(detail_row, text=label + ":", font=("Segoe UI", 10),
                     bg=self.colors['bg_dark'], fg=self.colors['text_gray'],
@@ -1525,12 +1546,12 @@ class KedaiHaunaApp:
             tk.Label(detail_row, text=value, font=("Segoe UI", 10, "bold"),
                     bg=self.colors['bg_dark'], fg="white", anchor="w").pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Items section
+        # Items section - Compact
         items_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
-        items_section.pack(fill=tk.X, padx=20, pady=15)
+        items_section.pack(fill=tk.X, padx=20, pady=10)
         
-        tk.Label(items_section, text="Item Pesanan", font=("Segoe UI", 12, "bold"),
-                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(10, 15), padx=15)
+        tk.Label(items_section, text="Item Pesanan", font=("Segoe UI", 11, "bold"),
+                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(8, 10), padx=15)
         
         # Items table header
         header_row = tk.Frame(items_section, bg=self.colors['bg_card'])
@@ -1549,13 +1570,13 @@ class KedaiHaunaApp:
                 bg=self.colors['bg_card'], fg=self.colors['text_gray'],
                 anchor="e", width=12).pack(side=tk.LEFT, padx=5)
         
-        # Items list
+        # Items list - Compact
         for item in transaction['items']:
             item_row = tk.Frame(items_section, bg="#1a1a1a")
-            item_row.pack(fill=tk.X, padx=15, pady=3)
+            item_row.pack(fill=tk.X, padx=15, pady=2)
             
-            tk.Label(item_row, text=item['name'], font=("Segoe UI", 10),
-                    bg="#1a1a1a", fg="white", anchor="w", width=30).pack(side=tk.LEFT, padx=5, pady=8)
+            tk.Label(item_row, text=item['name'], font=("Segoe UI", 9),
+                    bg="#1a1a1a", fg="white", anchor="w", width=30).pack(side=tk.LEFT, padx=5, pady=6)
             tk.Label(item_row, text=str(item['quantity']), font=("Segoe UI", 10),
                     bg="#1a1a1a", fg="white", anchor="center", width=8).pack(side=tk.LEFT, padx=5)
             tk.Label(item_row, text=f"Rp {item['price']:,}", font=("Segoe UI", 10),
@@ -1563,15 +1584,17 @@ class KedaiHaunaApp:
             tk.Label(item_row, text=f"Rp {item['price'] * item['quantity']:,}", font=("Segoe UI", 10, "bold"),
                     bg="#1a1a1a", fg="white", anchor="e", width=12).pack(side=tk.LEFT, padx=5)
         
-        # Summary section
+        # Summary section - Compact
         summary_section = tk.Frame(content_frame, bg=self.colors['bg_dark'])
-        summary_section.pack(fill=tk.X, padx=20, pady=15)
+        summary_section.pack(fill=tk.X, padx=20, pady=10)
         
-        tk.Label(summary_section, text="Ringkasan Pembayaran", font=("Segoe UI", 12, "bold"),
-                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(10, 15), padx=15)
+        tk.Label(summary_section, text="Ringkasan Pembayaran", font=("Segoe UI", 11, "bold"),
+                bg=self.colors['bg_dark'], fg="white", anchor="w").pack(fill=tk.X, pady=(8, 10), padx=15)
         
-        subtotal = transaction['total'] / 1.1
-        tax = transaction['total'] - subtotal
+        # Convert Decimal to float
+        total_val = float(transaction['total']) if hasattr(transaction['total'], '__float__') else transaction['total']
+        subtotal = total_val / 1.1
+        tax = total_val - subtotal
         
         summary_items = [
             ("Subtotal", f"Rp {subtotal:,.0f}", "white"),
@@ -1581,7 +1604,7 @@ class KedaiHaunaApp:
         
         for label, value, color in summary_items:
             summary_row = tk.Frame(summary_section, bg=self.colors['bg_dark'])
-            summary_row.pack(fill=tk.X, padx=15, pady=5)
+            summary_row.pack(fill=tk.X, padx=15, pady=3)
             
             font_style = ("Segoe UI", 14, "bold") if label == "TOTAL" else ("Segoe UI", 10)
             
@@ -1592,18 +1615,22 @@ class KedaiHaunaApp:
             tk.Label(summary_row, text=value, font=font_style,
                     bg=self.colors['bg_dark'], fg=color, anchor="e").pack(side=tk.RIGHT)
         
-        # Action buttons
+        # Action buttons - Ensure visible with extra bottom padding
         button_frame = tk.Frame(content_frame, bg=self.colors['bg_card'])
-        button_frame.pack(fill=tk.X, padx=20, pady=20)
+        button_frame.pack(fill=tk.X, padx=20, pady=(15, 30))  # Extra bottom padding
         
-        tk.Button(button_frame, text="🖨️ Cetak Ulang Nota", font=("Segoe UI", 11, "bold"),
+        tk.Button(button_frame, text="🖨️ Cetak Ulang Nota", font=("Segoe UI", 10, "bold"),
                  bg=self.colors['accent'], fg="white", relief=tk.FLAT,
                  command=lambda: self.print_receipt(transaction, 0),
-                 cursor="hand2", pady=12).pack(fill=tk.X, pady=5)
+                 cursor="hand2", pady=10).pack(fill=tk.X, pady=3)
         
-        tk.Button(button_frame, text="Tutup", font=("Segoe UI", 11),
+        tk.Button(button_frame, text="Tutup", font=("Segoe UI", 10),
                  bg=self.colors['bg_dark'], fg="white", relief=tk.FLAT,
-                 command=detail_window.destroy, cursor="hand2", pady=12).pack(fill=tk.X, pady=5)
+                 command=detail_window.destroy, cursor="hand2", pady=10).pack(fill=tk.X, pady=3)
+        
+        # Force canvas to update scroll region
+        content_frame.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
     
     def export_to_excel(self):
         """Export laporan transaksi ke Excel"""
@@ -1766,9 +1793,9 @@ class KedaiHaunaApp:
             y -= 15
             c.line(40, y, width-40, y)
             
-            # Summary stats
+            # Summary stats - Convert Decimal to float
             y -= 30
-            total_income = sum(t["total"] for t in self.transactions)
+            total_income = sum(float(t["total"]) if hasattr(t["total"], '__float__') else t["total"] for t in self.transactions)
             total_trans = len(self.transactions)
             avg_trans = total_income / total_trans if total_trans > 0 else 0
             
@@ -1813,16 +1840,19 @@ class KedaiHaunaApp:
                 if len(items_text) > 35:
                     items_text = items_text[:32] + "..."
                 
-                customer_name = trans.get('customer_name', 'Umum').title()
+                customer_name = str(trans.get('customer_name', 'Umum')).title()
+                
+                # Convert Decimal to float for formatting
+                total_value = float(trans['total']) if hasattr(trans['total'], '__float__') else trans['total']
                 
                 c.drawString(x_positions[0], y, str(idx))
-                c.drawString(x_positions[1], y, trans['id'][:12])
+                c.drawString(x_positions[1], y, str(trans['id'])[:12])
                 c.drawString(x_positions[2], y, date_str)
                 c.drawString(x_positions[3], y, time_str)
                 c.drawString(x_positions[4], y, customer_name[:12])
                 c.drawString(x_positions[5], y, items_text)
                 c.drawString(x_positions[6], y, payment_names.get(trans['payment_method'], '')[:10])
-                c.drawString(x_positions[7], y, f"Rp {trans['total']:,.0f}")
+                c.drawString(x_positions[7], y, f"Rp {total_value:,.0f}")
                 
                 y -= 18
             
